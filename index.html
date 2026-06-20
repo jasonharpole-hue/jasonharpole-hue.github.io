@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/@mapbox/shp-write@latest/shpwrite.js"></script>
-   
+  
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -98,7 +98,6 @@
         th.sorted-asc::after { content: " ↑"; }
         th.sorted-desc::after { content: " ↓"; }
         tr:hover { background: #1e3a2f; }
-        tr.selected { background: #0f3d2a !important; }
         .delete-btn { color: #ff6666; cursor: pointer; font-size: 18px; }
         .edit-btn { color: #00b8ff; cursor: pointer; margin-right: 8px; }
         .sidebar {
@@ -154,17 +153,6 @@
             text-align: center;
             text-shadow: 0 0 8px #00ff9d;
         }
-        .patrol-marker {
-            font-size: 22px;
-            line-height: 1;
-            text-align: center;
-            animation: pulse 1.5s infinite;
-        }
-        @keyframes pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.15); }
-            100% { transform: scale(1); }
-        }
     </style>
 </head>
 <body>
@@ -174,7 +162,7 @@
         <button id="add-mode-btn" onclick="toggleAddMode()">🟢 Add Mode: OFF</button>
         <button onclick="addNewEntry()">+ Manual Add</button>
         <button onclick="toggleSidebar()">🗺️ Layers</button>
-        <button onclick="togglePatrolControls()">⚙️ Patrol</button>
+        <button onclick="openPatrolSystem()">⚙️ Advanced Patrol</button>
         <button onclick="exportCSV()">📤 CSV</button>
         <button onclick="exportShapefile()">📦 Shapefile (.zip)</button>
         <button onclick="importCSV()">📥 Import CSV</button>
@@ -204,29 +192,16 @@
     </div>
 </div>
 
-<!-- Patrol Controls -->
-<div id="patrol-controls" style="display:none; position:absolute; top:80px; right:20px; background:rgba(15,23,42,0.97); padding:15px; border-radius:12px; border:1px solid #334155; z-index:1000; width:280px;">
-    <h4 style="margin:0 0 10px 0; color:#00ff9d;">Patrol Settings</h4>
-    <label>Radius: <span id="radius-val">1.6</span> km</label><br>
-    <input type="range" id="radius-slider" min="0.005" max="0.08" step="0.001" value="0.015" style="width:100%">
-    
-    <label style="margin-top:10px;display:block;">Speed: <span id="speed-val">1500</span> ms/loop</label><br>
-    <input type="range" id="speed-slider" min="400" max="6000" step="100" value="1500" style="width:100%">
-    
-    <button onclick="stopPatrol()" style="margin-top:12px; width:100%; background:#3a1a1a; border-color:#ff6666;">Stop Patrol</button>
-</div>
-
 <div id="sidebar" class="sidebar" style="display: none;">
     <h3 style="margin-bottom: 15px; color: #00ff9d;">Map Layers</h3>
     <input type="text" id="search" placeholder="Search location..." onkeypress="if(event.key==='Enter') searchLocation()">
-  
+ 
     <div class="layer-item active" id="layer-osm" onclick="toggleBaseLayer(0)">🌍 OpenStreetMap</div>
     <div class="layer-item" id="layer-sat" onclick="toggleBaseLayer(1)">🛰️ Satellite</div>
-  
+ 
     <h4 style="margin:20px 0 10px;">Demo Fleet</h4>
     <div onclick="loadDemoData()" style="padding:12px; background:#1e2937; border-radius:8px; cursor:pointer; text-align:center;">Load St. Louis Demo Robots</div>
 </div>
-
 <div id="toast" class="toast"></div>
 
 <script>
@@ -246,11 +221,6 @@ currentLayer = osm;
 
 let markersData = [];
 let addModeEnabled = false;
-let selectedIndex = -1;
-let patrolMarker = null;
-let patrolInterval = null;
-let patrolRadius = 0.015;   // degrees
-let patrolSpeed = 1500;     // ms per full circle
 
 const robotIcon = L.divIcon({
     className: 'robot-marker',
@@ -275,53 +245,9 @@ function loadFromLocalStorage() {
     } catch(e) {}
 }
 
-// ====================== PATROL ANIMATION ======================
-function startPatrol(index) {
-    if (patrolInterval) clearInterval(patrolInterval);
-    if (patrolMarker) map.removeLayer(patrolMarker);
-
-    selectedIndex = index;
-    const robot = markersData[index];
-    if (!robot) return;
-
-    renderTable(); // update highlight
-
-    let angle = 0;
-    const steps = 60;
-
-    patrolMarker = L.marker([robot.lat, robot.lng], {
-        icon: L.divIcon({
-            className: 'patrol-marker',
-            html: '🟡',
-            iconSize: [24, 24],
-            iconAnchor: [12, 12]
-        })
-    }).addTo(map);
-
-    patrolInterval = setInterval(() => {
-        if (selectedIndex !== index || !markersData[index]) {
-            stopPatrol();
-            return;
-        }
-
-        angle += (Math.PI * 2) / steps;
-        const offsetLat = patrolRadius * Math.sin(angle);
-        const offsetLng = patrolRadius * Math.cos(angle) * 1.4; // longitude stretch correction
-
-        const newLat = robot.lat + offsetLat;
-        const newLng = robot.lng + offsetLng;
-
-        patrolMarker.setLatLng([newLat, newLng]);
-    }, patrolSpeed / steps);
-}
-
-function stopPatrol() {
-    if (patrolInterval) clearInterval(patrolInterval);
-    if (patrolMarker) map.removeLayer(patrolMarker);
-    patrolMarker = null;
-    patrolInterval = null;
-    selectedIndex = -1;
-    renderTable();
+// ====================== PATROL ======================
+function openPatrolSystem() {
+    window.open('https://jasonharpole-hue.github.io/patrol.html', '_blank');
 }
 
 // ====================== MARKERS ======================
@@ -329,31 +255,19 @@ function addMarkerToMap(lat, lng, name, desc) {
     const marker = L.marker([lat, lng], { icon: robotIcon, riseOnHover: true }).addTo(map);
     marker.bindPopup(`<b>${name}</b><br>${desc || ''}<br><small>Lat: ${lat.toFixed(4)} | Lng: ${lng.toFixed(4)}</small>`);
     
-    // Clickable marker → start patrol
     marker.on('click', () => {
-        const index = markersData.findIndex(m => m.lat === lat && m.lng === lng);
-        if (index !== -1) {
-            if (selectedIndex === index) stopPatrol();
-            else {
-                startPatrol(index);
-                focusOnMap(lat, lng);
-            }
-        }
+        openPatrolSystem();
     });
-
-    const lastIndex = markersData.length - 1;
-    if (lastIndex >= 0) markersData[lastIndex].marker = marker;
+    
+    return marker;
 }
 
 // ====================== TABLE ======================
 function renderTable() {
     const tbody = document.getElementById('table-body');
     tbody.innerHTML = '';
-
     markersData.forEach((item, index) => {
         const row = document.createElement('tr');
-        const isSelected = index === selectedIndex;
-
         row.innerHTML = `
             <td>${index + 1}</td>
             <td>${item.name}</td>
@@ -365,27 +279,16 @@ function renderTable() {
                 <span class="delete-btn" onclick="deleteEntry(${index}); event.stopImmediatePropagation()">×</span>
             </td>
         `;
-
-        if (isSelected) row.classList.add('selected');
-
         row.onclick = (e) => {
             if (e.target.classList.contains('edit-btn') || e.target.classList.contains('delete-btn')) return;
-            
-            if (selectedIndex === index) {
-                stopPatrol();
-            } else {
-                startPatrol(index);
-                focusOnMap(item.lat, item.lng);
-            }
+            openPatrolSystem();
         };
-
         tbody.appendChild(row);
     });
-
     document.getElementById('entry-count').textContent = markersData.length;
 }
 
-// Table Sorting (unchanged from your original)
+// Table Sorting
 let sortColumn = 'id';
 let sortDirection = 1;
 document.querySelectorAll('th[data-sort]').forEach(th => {
@@ -393,7 +296,7 @@ document.querySelectorAll('th[data-sort]').forEach(th => {
         const col = th.getAttribute('data-sort');
         if (sortColumn === col) sortDirection *= -1;
         else { sortColumn = col; sortDirection = 1; }
-        
+       
         document.querySelectorAll('th').forEach(h => h.classList.remove('sorted-asc', 'sorted-desc'));
         th.classList.add(sortDirection === 1 ? 'sorted-asc' : 'sorted-desc');
         sortTable(col, sortDirection);
@@ -408,7 +311,7 @@ function sortTable(col, direction) {
         else if (col === 'lat') { valA = a.lat; valB = b.lat; }
         else if (col === 'lng') { valA = a.lng; valB = b.lng; }
         else if (col === 'desc') { valA = (a.desc || '').toLowerCase(); valB = (b.desc || '').toLowerCase(); }
-        
+       
         if (valA < valB) return -1 * direction;
         if (valA > valB) return 1 * direction;
         return 0;
@@ -424,9 +327,11 @@ function addNewEntry() {
     const lng = parseFloat(prompt("Longitude:", "-90.1994"));
     const desc = prompt("Status / Description:", "Patrolling downtown");
     if (isNaN(lat) || isNaN(lng)) return showToast("Invalid coordinates!", true);
-
-    markersData.push({ name, lat, lng, desc });
-    addMarkerToMap(lat, lng, name, desc);
+    
+    const newRobot = { name, lat, lng, desc };
+    markersData.push(newRobot);
+    newRobot.marker = addMarkerToMap(lat, lng, name, desc);
+    
     renderTable();
     saveToLocalStorage();
     showToast("Robot deployed");
@@ -435,21 +340,26 @@ function addNewEntry() {
 function editEntry(index) {
     const item = markersData[index];
     if (!item) return;
+    
     const name = prompt("Edit Robot Name:", item.name);
     if (name === null) return;
     const lat = parseFloat(prompt("Latitude:", item.lat));
     const lng = parseFloat(prompt("Longitude:", item.lng));
     const desc = prompt("Description / Status:", item.desc || "");
-
+    
     if (isNaN(lat) || isNaN(lng)) return showToast("Invalid coordinates!", true);
 
-    if (item.marker) map.removeLayer(item.marker);
     item.name = name;
     item.lat = lat;
     item.lng = lng;
     item.desc = desc;
-   
-    addMarkerToMap(lat, lng, name, desc);
+
+    // Refresh all markers
+    markersData.forEach(m => { if (m.marker) map.removeLayer(m.marker); });
+    markersData.forEach(m => {
+        m.marker = addMarkerToMap(m.lat, m.lng, m.name, m.desc);
+    });
+    
     renderTable();
     saveToLocalStorage();
     showToast("Robot updated");
@@ -459,7 +369,6 @@ function deleteEntry(index) {
     if (confirm("Decommission this robot?")) {
         if (markersData[index].marker) map.removeLayer(markersData[index].marker);
         markersData.splice(index, 1);
-        if (selectedIndex === index) stopPatrol();
         renderTable();
         saveToLocalStorage();
         showToast("Robot decommissioned");
@@ -470,15 +379,10 @@ function clearAllData() {
     if (confirm("Decommission ALL robots?")) {
         markersData.forEach(item => { if (item.marker) map.removeLayer(item.marker); });
         markersData = [];
-        stopPatrol();
         renderTable();
         saveToLocalStorage();
         showToast("Fleet cleared");
     }
-}
-
-function focusOnMap(lat, lng) {
-    map.flyTo([lat, lng], 14);
 }
 
 // ====================== CSV & SHAPEFILE ======================
@@ -521,6 +425,11 @@ function downloadFile(content, filename, type = 'application/octet-stream') {
     URL.revokeObjectURL(url);
 }
 
+// Placeholder for Import CSV (can be expanded later)
+function importCSV() {
+    showToast("Import feature coming soon...", true);
+}
+
 // ====================== UI ======================
 function showToast(message, isError = false) {
     const toast = document.getElementById('toast');
@@ -547,20 +456,35 @@ function toggleAddMode() {
     }
 }
 
-function togglePatrolControls() {
-    const ctrl = document.getElementById('patrol-controls');
-    ctrl.style.display = ctrl.style.display === 'none' ? 'block' : 'none';
+function toggleSidebar() {
+    const sb = document.getElementById('sidebar');
+    sb.style.display = sb.style.display === 'none' ? 'block' : 'none';
 }
 
-// Slider controls
-document.getElementById('radius-slider').addEventListener('input', function() {
-    patrolRadius = parseFloat(this.value);
-    document.getElementById('radius-val').textContent = (patrolRadius * 111).toFixed(1);
-});
-document.getElementById('speed-slider').addEventListener('input', function() {
-    patrolSpeed = parseFloat(this.value);
-    document.getElementById('speed-val').textContent = patrolSpeed;
-});
+function fitWorld() {
+    map.flyTo([38.6270, -90.1994], 11);
+}
+
+function loadDemoData() {
+    markersData.forEach(item => { if (item.marker) map.removeLayer(item.marker); });
+    markersData = [];
+  
+    const samples = [
+        {name: "R-Alpha", lat: 38.6270, lng: -90.1994, desc: "Downtown Patrol"},
+        {name: "R-Beta", lat: 38.6350, lng: -90.2100, desc: "Forest Park"},
+        {name: "R-Gamma", lat: 38.6120, lng: -90.1800, desc: "Gateway Arch"},
+        {name: "R-Delta", lat: 38.6500, lng: -90.2500, desc: "Airport"},
+        {name: "R-Epsilon", lat: 38.5900, lng: -90.2200, desc: "South City"}
+    ];
+ 
+    samples.forEach(s => {
+        markersData.push(s);
+        s.marker = addMarkerToMap(s.lat, s.lng, s.name, s.desc);
+    });
+    renderTable();
+    saveToLocalStorage();
+    showToast("Demo fleet loaded");
+}
 
 // Map click for adding robots
 map.on('click', function(e) {
@@ -568,9 +492,11 @@ map.on('click', function(e) {
     const name = prompt("New Robot Name:", "Unit-" + Math.floor(Math.random()*1000));
     if (!name) return;
     const desc = prompt("Status / Description:", "New deployment");
+   
+    const newRobot = {name, lat: e.latlng.lat, lng: e.latlng.lng, desc};
+    markersData.push(newRobot);
+    newRobot.marker = addMarkerToMap(e.latlng.lat, e.latlng.lng, name, desc);
     
-    markersData.push({name, lat: e.latlng.lat, lng: e.latlng.lng, desc});
-    addMarkerToMap(e.latlng.lat, e.latlng.lng, name, desc);
     renderTable();
     saveToLocalStorage();
     showToast("Robot deployed");
@@ -584,34 +510,9 @@ function toggleBaseLayer(n) {
     document.getElementById('layer-sat').classList.toggle('active', n === 1);
 }
 
-function toggleSidebar() {
-    const sb = document.getElementById('sidebar');
-    sb.style.display = sb.style.display === 'none' ? 'block' : 'none';
-}
-
-function fitWorld() {
-    map.flyTo([38.6270, -90.1994], 11);
-}
-
-function loadDemoData() {
-    markersData.forEach(item => { if (item.marker) map.removeLayer(item.marker); });
-    markersData = [];
-   
-    const samples = [
-        {name: "R-Alpha", lat: 38.6270, lng: -90.1994, desc: "Downtown Patrol"},
-        {name: "R-Beta", lat: 38.6350, lng: -90.2100, desc: "Forest Park"},
-        {name: "R-Gamma", lat: 38.6120, lng: -90.1800, desc: "Gateway Arch"},
-        {name: "R-Delta", lat: 38.6500, lng: -90.2500, desc: "Airport"},
-        {name: "R-Epsilon", lat: 38.5900, lng: -90.2200, desc: "South City"}
-    ];
-  
-    samples.forEach(s => {
-        markersData.push(s);
-        addMarkerToMap(s.lat, s.lng, s.name, s.desc);
-    });
-    renderTable();
-    saveToLocalStorage();
-    showToast("Demo fleet loaded");
+// Search placeholder
+function searchLocation() {
+    showToast("Search functionality coming soon...", true);
 }
 
 // ====================== INIT ======================
