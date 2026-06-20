@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Robot Patrol Test</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+
+<style>
+html, body {
+    margin: 0;
+    height: 100%;
+    overflow: hidden;
+    font-family: Arial, sans-serif;
+}
+
+#map {
+    width: 100%;
+    height: 100%;
+}
+
+#controls {
+    position: absolute;
+    top: 15px;
+    left: 15px;
+    z-index: 1000;
+
+    background: rgba(15,15,15,0.95);
+    color: white;
+
+    padding: 15px;
+    border-radius: 10px;
+
+    min-width: 220px;
+
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+}
+
+button {
+    width: 100%;
+    margin-bottom: 8px;
+    padding: 10px;
+
+    border: none;
+    border-radius: 6px;
+
+    background: #222;
+    color: white;
+
+    cursor: pointer;
+}
+
+button:hover {
+    background: #333;
+}
+
+.active {
+    background: #00aa66;
+}
+
+label {
+    display: block;
+    margin-top: 10px;
+}
+
+#status {
+    margin-top: 10px;
+    color: #00ff99;
+}
+</style>
+</head>
+<body>
+
+<div id="controls">
+
+    <button id="drawBtn">✏️ Draw Route</button>
+
+    <button id="finishBtn">✅ Finish Route</button>
+
+    <button id="startBtn">▶️ Start Patrol</button>
+
+    <button id="stopBtn">⏹️ Stop Patrol</button>
+
+    <button id="clearBtn">🗑️ Clear Route</button>
+
+    <label>
+        Speed
+        <input
+            type="range"
+            id="speed"
+            min="1"
+            max="20"
+            value="5"
+            style="width:100%;"
+        >
+    </label>
+
+    <div id="status">
+        Ready
+    </div>
+
+</div>
+
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+
+const map = L.map('map').setView(
+    [38.6270, -90.1994],
+    12
+);
+
+L.tileLayer(
+    'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    {
+        maxZoom: 19
+    }
+).addTo(map);
+
+let drawMode = false;
+
+let waypoints = [];
+
+let waypointMarkers = [];
+
+let routeLine = null;
+
+let robot = null;
+
+let animationFrame = null;
+
+let moving = false;
+
+let segmentIndex = 0;
+
+let progress = 0;
+
+let speed = 0.002;
+
+const statusBox =
+    document.getElementById("status");
+
+function setStatus(msg) {
+    statusBox.textContent = msg;
+}
+
+const robotIcon = L.divIcon({
+    className: "",
+    html: `
+        <div style="
+            font-size:36px;
+            filter:drop-shadow(0 0 8px lime);
+        ">
+            🤖
+        </div>
+    `,
+    iconSize: [36,36],
+    iconAnchor: [18,18]
+});
+
+function redrawRoute() {
+
+    if (routeLine) {
+        map.removeLayer(routeLine);
+    }
+
+    routeLine = L.polyline(
+        waypoints,
+        {
+            color: "#00ff99",
+            weight: 5
+        }
+    ).addTo(map);
+}
+
+document
+.getElementById("drawBtn")
+.onclick = () => {
+
+    drawMode = !drawMode;
+
+    document
+    .getElementById("drawBtn")
+    .classList.toggle("active");
+
+    setStatus(
+        drawMode
+        ? "Draw Mode ON"
+        : "Draw Mode OFF"
+    );
+};
+
+document
+.getElementById("finishBtn")
+.onclick = () => {
+
+    drawMode = false;
+
+    document
+    .getElementById("drawBtn")
+    .classList.remove("active");
+
+    if (
+        routeLine &&
+        waypoints.length > 1
+    ) {
+        map.fitBounds(
+            routeLine.getBounds()
+        );
+    }
+
+    setStatus(
+        "Route Finished"
+    );
+};
+
+document
+.getElementById("clearBtn")
+.onclick = () => {
+
+    stopPatrol();
+
+    if (routeLine) {
+        map.removeLayer(routeLine);
+        routeLine = null;
+    }
+
+    waypointMarkers.forEach(m => {
+        map.removeLayer(m);
+    });
+
+    waypointMarkers = [];
+
+    waypoints = [];
+
+    if (robot) {
+        map.removeLayer(robot);
+        robot = null;
+    }
+
+    setStatus(
+        "Route Cleared"
+    );
+};
+
+map.on("click", e => {
+
+    if (!drawMode) return;
+
+    waypoints.push([
+        e.latlng.lat,
+        e.latlng.lng
+    ]);
+
+    const marker =
+        L.circleMarker(
+            e.latlng,
+            {
+                radius: 6,
+                color: "#00ff99",
+                fillColor: "#00ff99",
+                fillOpacity: 1
+            }
+        ).addTo(map);
+
+    waypointMarkers.push(marker);
+
+    redrawRoute();
+});
+
+function startPatrol() {
+
+    if (
+        waypoints.length < 2
+    ) {
+        alert(
+            "Create at least 2 waypoints."
+        );
+        return;
+    }
+
+    stopPatrol();
+
+    robot = L.marker(
+        waypoints[0],
+        {
+            icon: robotIcon,
+            zIndexOffset: 10000
+        }
+    ).addTo(map);
+
+    segmentIndex = 0;
+    progress = 0;
+    moving = true;
+
+    animateRobot();
+
+    setStatus(
+        "Patrol Running"
+    );
+}
+
+function stopPatrol() {
+
+    moving = false;
+
+    if (animationFrame) {
+        cancelAnimationFrame(
+            animationFrame
+        );
+    }
+}
+
+function animateRobot() {
+
+    if (!moving) return;
+
+    const start =
+        waypoints[segmentIndex];
+
+    const end =
+        waypoints[
+            (segmentIndex + 1)
+            %
+            waypoints.length
+        ];
+
+    progress += speed;
+
+    if (progress >= 1) {
+
+        progress = 0;
+
+        segmentIndex++;
+
+        if (
+            segmentIndex >=
+            waypoints.length
+        ) {
+            segmentIndex = 0;
+        }
+    }
+
+    const lat =
+        start[0] +
+        (end[0] - start[0])
+        * progress;
+
+    const lng =
+        start[1] +
+        (end[1] - start[1])
+        * progress;
+
+    robot.setLatLng([
+        lat,
+        lng
+    ]);
+
+    animationFrame =
+        requestAnimationFrame(
+            animateRobot
+        );
+}
+
+document
+.getElementById("startBtn")
+.onclick = startPatrol;
+
+document
+.getElementById("stopBtn")
+.onclick = () => {
+
+    stopPatrol();
+
+    setStatus(
+        "Patrol Stopped"
+    );
+};
+
+document
+.getElementById("speed")
+.addEventListener(
+    "input",
+    function() {
+
+        speed =
+            parseFloat(
+                this.value
+            ) / 5000;
+    }
+);
+
+</script>
+
+</body>
+</html>
