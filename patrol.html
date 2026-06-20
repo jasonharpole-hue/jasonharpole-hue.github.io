@@ -15,14 +15,67 @@ html, body {
     font-family: Arial, sans-serif;
 }
 
+#navbar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 50px;
+    background: #000;
+    color: white;
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 15px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+}
+
+#navbar .nav-title {
+    font-size: 18px;
+    font-weight: bold;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+}
+
+#navbar .nav-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+#navbar button {
+    width: auto;
+    margin-bottom: 0;
+    padding: 8px 16px;
+    border: 1px solid #333;
+    border-radius: 6px;
+    background: #1a1a1a;
+    color: white;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+#navbar button:hover {
+    background: #333;
+}
+
+#navbar button.active {
+    background: #00aa66;
+    border-color: #00aa66;
+}
+
 #map {
     width: 100%;
     height: 100%;
+    position: absolute;
+    top: 50px;
+    left: 0;
+    bottom: 0;
 }
 
 #controls {
     position: absolute;
-    top: 15px;
+    top: 65px;
     left: 15px;
     z-index: 1000;
 
@@ -68,9 +121,81 @@ label {
     margin-top: 10px;
     color: #00ff99;
 }
+
+/* Pan/zoom control pad */
+#navControls {
+    position: absolute;
+    bottom: 25px;
+    right: 20px;
+    z-index: 1000;
+    background: rgba(15,15,15,0.95);
+    border-radius: 10px;
+    padding: 10px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+}
+
+#panPad {
+    display: grid;
+    grid-template-columns: 40px 40px 40px;
+    grid-template-rows: 40px 40px 40px;
+    gap: 4px;
+    margin-bottom: 8px;
+}
+
+#panPad button {
+    width: 40px;
+    height: 40px;
+    margin: 0;
+    padding: 0;
+    background: #222;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 16px;
+    cursor: pointer;
+}
+
+#panPad button:hover {
+    background: #333;
+}
+
+#panPad .empty {
+    background: transparent;
+    cursor: default;
+}
+
+#zoomPad {
+    display: flex;
+    justify-content: space-between;
+    gap: 4px;
+}
+
+#zoomPad button {
+    flex: 1;
+    margin: 0;
+    padding: 8px 0;
+    background: #222;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 16px;
+    cursor: pointer;
+}
+
+#zoomPad button:hover {
+    background: #333;
+}
 </style>
 </head>
 <body>
+
+<div id="navbar">
+    <div class="nav-title">🤖 ROBOT MANAGEMENT SYSTEM</div>
+    <div class="nav-buttons">
+        <button id="layersBtn">🛰️ Layers</button>
+        <button id="homeBtn">🏠 Home</button>
+    </div>
+</div>
 
 <div id="controls">
 
@@ -83,6 +208,8 @@ label {
     <button id="stopBtn">⏹️ Stop Patrol</button>
 
     <button id="clearBtn">🗑️ Clear Route</button>
+
+    <button id="exportBtn">📦 Export Shapefile</button>
 
     <label>
         Speed
@@ -104,21 +231,99 @@ label {
 
 <div id="map"></div>
 
+<div id="navControls">
+    <div id="panPad">
+        <div class="empty"></div>
+        <button id="panUp">⬆️</button>
+        <div class="empty"></div>
+        <button id="panLeft">⬅️</button>
+        <button id="panCenter">⏺️</button>
+        <button id="panRight">➡️</button>
+        <div class="empty"></div>
+        <button id="panDown">⬇️</button>
+        <div class="empty"></div>
+    </div>
+    <div id="zoomPad">
+        <button id="zoomOutBtn">➖</button>
+        <button id="zoomInBtn">➕</button>
+    </div>
+</div>
+
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
 <script>
 
-const map = L.map('map').setView(
+const map = L.map('map', { zoomControl: false }).setView(
     [38.6270, -90.1994],
     12
 );
 
-L.tileLayer(
+const streetLayer = L.tileLayer(
     'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
     {
         maxZoom: 19
     }
 ).addTo(map);
+
+const satelliteLayer = L.tileLayer(
+    'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    {
+        maxZoom: 19,
+        attribution: 'Tiles &copy; Esri'
+    }
+);
+
+let satelliteOn = false;
+
+document
+.getElementById("layersBtn")
+.onclick = () => {
+
+    satelliteOn = !satelliteOn;
+
+    document
+    .getElementById("layersBtn")
+    .classList.toggle("active");
+
+    if (satelliteOn) {
+        map.removeLayer(streetLayer);
+        satelliteLayer.addTo(map);
+        setStatus("Satellite View ON");
+    } else {
+        map.removeLayer(satelliteLayer);
+        streetLayer.addTo(map);
+        setStatus("Satellite View OFF");
+    }
+};
+
+document
+.getElementById("homeBtn")
+.onclick = () => {
+    window.location.href = "https://jasonharpole-hue.github.io/";
+};
+
+// Pan controls
+const panAmount = 0.25; // fraction of map size
+
+function panMap(dx, dy) {
+    const size = map.getSize();
+    map.panBy([
+        size.x * panAmount * dx,
+        size.y * panAmount * dy
+    ]);
+}
+
+document.getElementById("panUp").onclick = () => panMap(0, -1);
+document.getElementById("panDown").onclick = () => panMap(0, 1);
+document.getElementById("panLeft").onclick = () => panMap(-1, 0);
+document.getElementById("panRight").onclick = () => panMap(1, 0);
+document.getElementById("panCenter").onclick = () => {
+    map.setView([38.6270, -90.1994], 12);
+};
+
+document.getElementById("zoomInBtn").onclick = () => map.zoomIn();
+document.getElementById("zoomOutBtn").onclick = () => map.zoomOut();
 
 let drawMode = false;
 
@@ -244,6 +449,204 @@ document
     setStatus(
         "Route Cleared"
     );
+};
+
+function buildShapefileBuffers(coordsLatLng) {
+
+    // coordsLatLng is array of [lat, lng]; shapefiles use [x=lng, y=lat]
+    const points = coordsLatLng.map(
+        p => [p[1], p[0]]
+    );
+
+    const numPoints = points.length;
+
+    let xMin = Infinity, yMin = Infinity;
+    let xMax = -Infinity, yMax = -Infinity;
+
+    points.forEach(([x, y]) => {
+        if (x < xMin) xMin = x;
+        if (x > xMax) xMax = x;
+        if (y < yMin) yMin = y;
+        if (y > yMax) yMax = y;
+    });
+
+    // ---- .shp ----
+    const recordContentLen = 4 + 32 + 4 + 4 + 4 + (numPoints * 16);
+    // shapeType(4) + box(32) + numParts(4) + numPoints(4) + parts(4) + points(16 each)
+    const recordHeaderLen = 8;
+    const shpHeaderLen = 100;
+    const shpTotalLen = shpHeaderLen + recordHeaderLen + recordContentLen;
+
+    const shpBuf = new ArrayBuffer(shpTotalLen);
+    const shpView = new DataView(shpBuf);
+
+    shpView.setInt32(0, 9994, false); // file code, big endian
+    shpView.setInt32(24, shpTotalLen / 2, false); // file length in 16-bit words, big endian
+    shpView.setInt32(28, 1000, true); // version, little endian
+    shpView.setInt32(32, 3, true); // shape type 3 = PolyLine
+
+    shpView.setFloat64(36, xMin, true);
+    shpView.setFloat64(44, yMin, true);
+    shpView.setFloat64(52, xMax, true);
+    shpView.setFloat64(60, yMax, true);
+    // Z and M ranges left as 0
+
+    let offset = 100;
+
+    shpView.setInt32(offset, 1, false); // record number, big endian
+    offset += 4;
+    shpView.setInt32(offset, recordContentLen / 2, false); // content length in words, big endian
+    offset += 4;
+
+    shpView.setInt32(offset, 3, true); // shape type
+    offset += 4;
+
+    shpView.setFloat64(offset, xMin, true); offset += 8;
+    shpView.setFloat64(offset, yMin, true); offset += 8;
+    shpView.setFloat64(offset, xMax, true); offset += 8;
+    shpView.setFloat64(offset, yMax, true); offset += 8;
+
+    shpView.setInt32(offset, 1, true); offset += 4; // numParts
+    shpView.setInt32(offset, numPoints, true); offset += 4; // numPoints
+
+    shpView.setInt32(offset, 0, true); offset += 4; // parts[0] start index
+
+    points.forEach(([x, y]) => {
+        shpView.setFloat64(offset, x, true); offset += 8;
+        shpView.setFloat64(offset, y, true); offset += 8;
+    });
+
+    // ---- .shx ----
+    const shxTotalLen = 100 + 8;
+    const shxBuf = new ArrayBuffer(shxTotalLen);
+    const shxView = new DataView(shxBuf);
+
+    shxView.setInt32(0, 9994, false);
+    shxView.setInt32(24, shxTotalLen / 2, false);
+    shxView.setInt32(28, 1000, true);
+    shxView.setInt32(32, 3, true);
+    shxView.setFloat64(36, xMin, true);
+    shxView.setFloat64(44, yMin, true);
+    shxView.setFloat64(52, xMax, true);
+    shxView.setFloat64(60, yMax, true);
+
+    shxView.setInt32(100, 50, false); // offset of record in 16-bit words (100 bytes / 2)
+    shxView.setInt32(104, recordContentLen / 2, false); // content length in words
+
+    // ---- .dbf ----
+    const fieldName = "name";
+    const fieldLen = 50;
+    const headerLen = 32 + 32 + 1; // header + one field descriptor + terminator
+    const recordLen = 1 + fieldLen; // deleted flag + field
+    const dbfTotalLen = headerLen + recordLen + 1; // +1 for EOF marker
+
+    const dbfBuf = new ArrayBuffer(dbfTotalLen);
+    const dbfView = new DataView(dbfBuf);
+    const dbfBytes = new Uint8Array(dbfBuf);
+
+    dbfBytes[0] = 0x03; // version
+    const now = new Date();
+    dbfBytes[1] = now.getFullYear() - 1900;
+    dbfBytes[2] = now.getMonth() + 1;
+    dbfBytes[3] = now.getDate();
+
+    dbfView.setInt32(4, 1, true); // number of records
+    dbfView.setInt16(8, headerLen, true); // header size
+    dbfView.setInt16(10, recordLen, true); // record size
+
+    // field descriptor at byte 32
+    const nameBytes = new TextEncoder().encode(fieldName);
+    for (let i = 0; i < nameBytes.length && i < 10; i++) {
+        dbfBytes[32 + i] = nameBytes[i];
+    }
+    dbfBytes[32 + 11] = 0x43; // 'C' character type
+    dbfBytes[32 + 16] = fieldLen; // field length
+
+    dbfBytes[headerLen - 1] = 0x0D; // header terminator
+
+    // record
+    let dOffset = headerLen;
+    dbfBytes[dOffset] = 0x20; // not deleted
+    dOffset += 1;
+
+    const valueBytes = new TextEncoder().encode(
+        "RobotPatrolRoute".padEnd(fieldLen, " ")
+    );
+    for (let i = 0; i < fieldLen; i++) {
+        dbfBytes[dOffset + i] = valueBytes[i] !== undefined ? valueBytes[i] : 0x20;
+    }
+    dOffset += fieldLen;
+
+    dbfBytes[dOffset] = 0x1A; // EOF marker
+
+    // ---- .prj ----
+    const prjText =
+        'GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",' +
+        'SPHEROID["WGS_1984",6378137.0,298.257223563]],' +
+        'PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]]';
+
+    return {
+        shp: shpBuf,
+        shx: shxBuf,
+        dbf: dbfBuf,
+        prj: prjText
+    };
+}
+
+document
+.getElementById("exportBtn")
+.onclick = () => {
+
+    if (waypoints.length < 2) {
+        alert(
+            "Create at least 2 waypoints before exporting."
+        );
+        return;
+    }
+
+    if (typeof JSZip === "undefined") {
+        alert(
+            "Zip library failed to load. Check your internet connection and try again."
+        );
+        return;
+    }
+
+    try {
+
+        const files = buildShapefileBuffers(waypoints);
+
+        const zip = new JSZip();
+
+        zip.file("robot_patrol_route.shp", files.shp);
+        zip.file("robot_patrol_route.shx", files.shx);
+        zip.file("robot_patrol_route.dbf", files.dbf);
+        zip.file("robot_patrol_route.prj", files.prj);
+
+        zip.generateAsync({ type: "blob" }).then(content => {
+
+            const url = URL.createObjectURL(content);
+            const a = document.createElement("a");
+
+            a.href = url;
+            a.download = "robot_patrol_route.zip";
+
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+
+            URL.revokeObjectURL(url);
+
+            setStatus(
+                "Shapefile Exported"
+            );
+        });
+
+    } catch (err) {
+        console.error(err);
+        alert(
+            "Shapefile export failed: " + err.message
+        );
+    }
 };
 
 map.on("click", e => {
