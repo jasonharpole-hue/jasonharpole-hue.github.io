@@ -469,13 +469,18 @@ function loadDemoData() {
     markersData.forEach(item => { if (item.marker) map.removeLayer(item.marker); });
     markersData = [];
   
-    const samples = [
-        {name: "R-Alpha", lat: 38.6270, lng: -90.1994, desc: "Downtown Patrol"},
-        {name: "R-Beta", lat: 38.6350, lng: -90.2100, desc: "Forest Park"},
-        {name: "R-Gamma", lat: 38.6120, lng: -90.1800, desc: "Gateway Arch"},
-        {name: "R-Delta", lat: 38.6500, lng: -90.2500, desc: "Airport"},
-        {name: "R-Epsilon", lat: 38.5900, lng: -90.2200, desc: "South City"}
-    ];
+const samples = [
+    {name: "R-Alpha", lat: 38.6270, lng: -90.1994, desc: "Downtown Patrol"},
+    {name: "R-Beta", lat: 38.6350, lng: -90.2100, desc: "Forest Park"},
+    {name: "R-Gamma", lat: 38.6120, lng: -90.1800, desc: "Gateway Arch"},
+    {name: "R-Delta", lat: 38.6500, lng: -90.2500, desc: "Airport"},
+    {name: "R-Epsilon", lat: 38.5900, lng: -90.2200, desc: "South City"},
+    {name: "R-Zeta", lat: 38.6580, lng: -90.3050, desc: "Clayton"},
+    {name: "R-Eta", lat: 38.5470, lng: -90.2900, desc: "Webster Groves"},
+    {name: "R-Theta", lat: 38.7210, lng: -90.0650, desc: "Granite City Crossing"},
+    {name: "R-Iota", lat: 38.6010, lng: -90.1200, desc: "Soulard"},
+    {name: "R-Kappa", lat: 38.6790, lng: -90.3980, desc: "Creve Coeur"}
+];
  
     samples.forEach(s => {
         markersData.push(s);
