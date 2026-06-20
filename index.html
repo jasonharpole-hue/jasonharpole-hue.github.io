@@ -45,11 +45,7 @@
             cursor: pointer;
             transition: all 0.2s;
         }
-        button:hover { 
-            background: #333; 
-            border-color: #00ff9d;
-            transform: translateY(-1px);
-        }
+        button:hover { background: #333; border-color: #00ff9d; transform: translateY(-1px); }
         button.active {
             background: #004d26;
             border-color: #00ff9d;
@@ -278,24 +274,75 @@ function addMarkerToMap(lat, lng, name, desc) {
     if (lastIndex >= 0) markersData[lastIndex].marker = marker;
 }
 
-// ====================== TABLE (unchanged) ======================
-function renderTable() { /* ... same as previous ... */ }
+// ====================== TABLE ======================
+function renderTable() {
+    const tbody = document.getElementById('table-body');
+    tbody.innerHTML = '';
+   
+    markersData.forEach((item, index) => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${index + 1}</td>
+            <td>${item.name}</td>
+            <td>${item.lat.toFixed(4)}</td>
+            <td>${item.lng.toFixed(4)}</td>
+            <td>${item.desc ? item.desc.substring(0, 55) + (item.desc.length > 55 ? '...' : '') : '-'}</td>
+            <td>
+                <span class="edit-btn" onclick="editEntry(${index}); event.stopImmediatePropagation()">✏️</span>
+                <span class="delete-btn" onclick="deleteEntry(${index}); event.stopImmediatePropagation()">×</span>
+            </td>
+        `;
+        row.onclick = () => focusOnMap(item.lat, item.lng, item.name);
+        tbody.appendChild(row);
+    });
+   
+    document.getElementById('entry-count').textContent = markersData.length;
+}
+
+// Table Sorting
 let sortColumn = 'id';
 let sortDirection = 1;
 
 document.querySelectorAll('th[data-sort]').forEach(th => {
     th.addEventListener('click', () => {
         const col = th.getAttribute('data-sort');
-        if (sortColumn === col) sortDirection *= -1;
-        else { sortColumn = col; sortDirection = 1; }
-        
+        if (sortColumn === col) {
+            sortDirection *= -1;
+        } else {
+            sortColumn = col;
+            sortDirection = 1;
+        }
         document.querySelectorAll('th').forEach(h => h.classList.remove('sorted-asc', 'sorted-desc'));
         th.classList.add(sortDirection === 1 ? 'sorted-asc' : 'sorted-desc');
         sortTable(col, sortDirection);
     });
 });
 
-function sortTable(col, direction) { /* ... same as previous ... */ }
+function sortTable(col, direction) {
+    markersData.sort((a, b) => {
+        let valA, valB;
+        if (col === 'id') {
+            valA = markersData.indexOf(a);
+            valB = markersData.indexOf(b);
+        } else if (col === 'name') {
+            valA = a.name.toLowerCase();
+            valB = b.name.toLowerCase();
+        } else if (col === 'lat') {
+            valA = a.lat;
+            valB = b.lat;
+        } else if (col === 'lng') {
+            valA = a.lng;
+            valB = b.lng;
+        } else if (col === 'desc') {
+            valA = (a.desc || '').toLowerCase();
+            valB = (b.desc || '').toLowerCase();
+        }
+        if (valA < valB) return -1 * direction;
+        if (valA > valB) return 1 * direction;
+        return 0;
+    });
+    renderTable();
+}
 
 // ====================== CRUD ======================
 function addNewEntry() {
@@ -314,14 +361,85 @@ function addNewEntry() {
     showToast("Robot deployed");
 }
 
-function editEntry(index) { /* ... same as previous ... */ }
-function deleteEntry(index) { /* ... same as previous ... */ }
-function clearAllData() { /* ... same as previous ... */ }
+function editEntry(index) {
+    const item = markersData[index];
+    if (!item) return;
+    const name = prompt("Edit Robot Name:", item.name);
+    if (name === null) return;
+    const lat = parseFloat(prompt("Latitude:", item.lat));
+    const lng = parseFloat(prompt("Longitude:", item.lng));
+    const desc = prompt("Description / Status:", item.desc || "");
+   
+    if (isNaN(lat) || isNaN(lng)) return showToast("Invalid coordinates!", true);
+   
+    if (item.marker) map.removeLayer(item.marker);
+    
+    item.name = name;
+    item.lat = lat;
+    item.lng = lng;
+    item.desc = desc;
+    
+    addMarkerToMap(lat, lng, name, desc);
+    renderTable();
+    saveToLocalStorage();
+    showToast("Robot updated");
+}
 
-// ====================== CSV / Shapefile (same) ======================
-function exportCSV() { /* ... */ }
-function importCSV() { /* ... */ }
-async function exportShapefile() { /* ... */ }
+function deleteEntry(index) {
+    if (confirm("Decommission this robot?")) {
+        if (markersData[index].marker) map.removeLayer(markersData[index].marker);
+        markersData.splice(index, 1);
+        renderTable();
+        saveToLocalStorage();
+        showToast("Robot decommissioned");
+    }
+}
+
+function clearAllData() {
+    if (confirm("Decommission ALL robots?")) {
+        markersData.forEach(item => { if (item.marker) map.removeLayer(item.marker); });
+        markersData = [];
+        renderTable();
+        saveToLocalStorage();
+        showToast("Fleet cleared");
+    }
+}
+
+function focusOnMap(lat, lng) {
+    map.flyTo([lat, lng], 14);
+}
+
+// ====================== CSV & SHAPEFILE ======================
+function exportCSV() {
+    if (!markersData.length) return showToast("No data to export!", true);
+    let csv = "ID,Name,Latitude,Longitude,Description\n";
+    markersData.forEach((item, i) => {
+        csv += `${i+1},"${item.name.replace(/"/g, '""')}",${item.lat},${item.lng},"${(item.desc || '').replace(/"/g, '""')}"\n`;
+    });
+    downloadFile(csv, `robot_fleet_${new Date().toISOString().slice(0,10)}.csv`, 'text/csv');
+}
+
+function importCSV() { /* ... */ } // Keep if needed
+
+async function exportShapefile() {
+    if (!markersData.length) return showToast("No data to export!", true);
+    try {
+        showToast("Generating Shapefile...");
+        const geojson = {
+            type: "FeatureCollection",
+            features: markersData.map((item, index) => ({
+                type: "Feature",
+                geometry: { type: "Point", coordinates: [item.lng, item.lat] },
+                properties: { ID: index + 1, Name: item.name, Description: item.desc || "" }
+            }))
+        };
+        const zipBlob = await shpwrite.zip(geojson, { folder: "Robot_Fleet", types: { point: "points" } });
+        downloadFile(zipBlob, `robot_fleet_${new Date().toISOString().slice(0,10)}.zip`);
+        showToast("Shapefile exported!");
+    } catch (err) {
+        showToast("Failed to create Shapefile", true);
+    }
+}
 
 function downloadFile(content, filename, type = 'application/octet-stream') {
     const blob = content instanceof Blob ? content : new Blob([content], { type });
@@ -345,25 +463,53 @@ function showToast(message, isError = false) {
 // ====================== MAP INTERACTIONS ======================
 map.on('click', function(e) {
     if (!addModeEnabled) return;
-    
     const name = prompt("New Robot Name:", "Unit-" + Math.floor(Math.random()*1000));
     if (!name) return;
-    
     const desc = prompt("Status / Description:", "New deployment");
-    
     markersData.push({name, lat: e.latlng.lat, lng: e.latlng.lng, desc});
     addMarkerToMap(e.latlng.lat, e.latlng.lng, name, desc);
     renderTable();
     saveToLocalStorage();
-    showToast("Robot deployed at clicked location");
+    showToast("Robot deployed");
 });
 
-function toggleBaseLayer(n) { /* ... same ... */ }
-async function searchLocation() { /* ... same ... */ }
-function toggleSidebar() { /* ... same ... */ }
-function fitWorld() { map.flyTo([38.6270, -90.1994], 11); }
+function toggleBaseLayer(n) {
+    map.removeLayer(currentLayer);
+    currentLayer = n === 0 ? osm : satellite;
+    currentLayer.addTo(map);
+    document.getElementById('layer-osm').classList.toggle('active', n === 0);
+    document.getElementById('layer-sat').classList.toggle('active', n === 1);
+}
 
-function loadDemoData() { /* ... same as previous ... */ }
+function toggleSidebar() {
+    const sb = document.getElementById('sidebar');
+    sb.style.display = sb.style.display === 'none' ? 'block' : 'none';
+}
+
+function fitWorld() {
+    map.flyTo([38.6270, -90.1994], 11);
+}
+
+function loadDemoData() {
+    markersData.forEach(item => { if (item.marker) map.removeLayer(item.marker); });
+    markersData = [];
+    
+    const samples = [
+        {name: "R-Alpha", lat: 38.6270, lng: -90.1994, desc: "Downtown Patrol"},
+        {name: "R-Beta", lat: 38.6350, lng: -90.2100, desc: "Forest Park"},
+        {name: "R-Gamma", lat: 38.6120, lng: -90.1800, desc: "Gateway Arch"},
+        {name: "R-Delta", lat: 38.6500, lng: -90.2500, desc: "Airport"},
+        {name: "R-Epsilon", lat: 38.5900, lng: -90.2200, desc: "South City"}
+    ];
+   
+    samples.forEach(s => {
+        markersData.push(s);
+        addMarkerToMap(s.lat, s.lng, s.name, s.desc);
+    });
+    renderTable();
+    saveToLocalStorage();
+    showToast("Demo fleet loaded");
+}
 
 // ====================== INIT ======================
 loadFromLocalStorage();
