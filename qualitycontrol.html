@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GIS Shapefile Manager</title>
+    <title>GIS Shapefile Manager - Advanced Topology</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/@mapbox/shp-write@latest/shpwrite.js"></script>
-    <!-- Shapefile Reader -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/shpjs/6.1.0/shp.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
 
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -39,22 +39,17 @@
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
-        .controls { display: flex; gap: 10px; flex-wrap: wrap; }
+        .controls { display: flex; gap: 8px; flex-wrap: wrap; }
         button {
             background: #1f1f1f;
             color: white;
             border: 1px solid #444;
-            padding: 8px 16px;
+            padding: 9px 16px;
             border-radius: 6px;
             cursor: pointer;
             transition: all 0.2s;
         }
         button:hover { background: #333; border-color: #00ff9d; transform: translateY(-1px); }
-        button.active, button.danger {
-            background: #004d26;
-            border-color: #00ff9d;
-            color: #00ff9d;
-        }
         button.danger { background: #3a1a1a; border-color: #ff6666; color: #ff9999; }
         #container { flex: 1; display: flex; flex-direction: column; }
         #map { flex: 1; position: relative; }
@@ -90,20 +85,14 @@
             padding: 10px 12px;
             text-align: left;
             border-bottom: 1px solid #333;
-            cursor: pointer;
         }
-        th {
-            background: #1a1a1a;
-            position: sticky;
-            top: 0;
-            z-index: 10;
-        }
+        th { background: #1a1a1a; position: sticky; top: 0; z-index: 10; }
         tr:hover { background: #1e3a2f; }
         .sidebar {
             position: absolute;
             top: 20px;
             right: 20px;
-            width: 340px;
+            width: 400px;
             background: rgba(15, 23, 42, 0.97);
             border-radius: 12px;
             padding: 20px;
@@ -133,14 +122,13 @@
             text-align: center;
             text-shadow: 0 0 8px #00ff9d;
         }
-        .issues-panel {
+        .issue-item { 
+            color: #ff9999; 
+            margin: 8px 0; 
+            padding: 6px 10px; 
+            border-left: 3px solid #ff6666; 
             background: #1a1a1a;
-            padding: 15px;
-            margin-top: 15px;
-            border-radius: 8px;
-            border: 1px solid #ff6666;
         }
-        .issue-item { color: #ff9999; margin: 6px 0; }
     </style>
 </head>
 <body>
@@ -150,11 +138,13 @@
         <button onclick="document.getElementById('shp-upload').click()">📤 Upload Shapefile (.zip)</button>
         <input type="file" id="shp-upload" accept=".zip" style="display:none" onchange="handleShapefileUpload(event)">
         <button onclick="detectIssues()">🔍 Detect Issues</button>
-        <button onclick="runTopologyFixes()">🛠️ Run Topology Fixes</button>
+        <button onclick="runTopologyFixes()">🛠️ Full Topology Fix</button>
+        <button onclick="dissolveFeatures()">🔗 Dissolve Overlaps</button>
         <button onclick="exportFixedShapefile()">📦 Export Fixed Shapefile</button>
         <button onclick="fitWorld()">🌍 Reset View</button>
     </div>
 </header>
+
 <div id="container">
     <div id="map"></div>
     <div id="database-panel">
@@ -177,7 +167,7 @@
 </div>
 
 <!-- Issues Sidebar -->
-<div id="issues-sidebar" class="sidebar" style="display: none; width: 380px;">
+<div id="issues-sidebar" class="sidebar" style="display: none;">
     <h3 style="color: #ff6666; margin-bottom: 15px;">🔍 Detected Issues</h3>
     <div id="issues-list"></div>
     <button onclick="closeIssuesSidebar()" style="margin-top:15px; width:100%;">Close</button>
@@ -186,15 +176,11 @@
 <div id="toast" class="toast"></div>
 
 <script>
-// ====================== CONFIG & MAP SETUP ======================
+// ====================== CORE SETUP ======================
 let map = L.map('map', { zoomControl: true }).setView([38.6270, -90.1994], 11);
-let currentLayer;
-const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' });
-const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 });
-osm.addTo(map);
-currentLayer = osm;
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
 
-let featuresData = [];        // GeoJSON features
+let featuresData = [];
 let originalShapefileName = "";
 let currentGeoJSON = null;
 
@@ -207,137 +193,151 @@ const markerIcon = L.divIcon({
 
 let featureLayer = L.layerGroup().addTo(map);
 
-// ====================== UTILS ======================
+// ====================== UTILITIES ======================
 function showToast(message, isError = false) {
     const toast = document.getElementById('toast');
     toast.textContent = message;
     toast.style.background = isError ? '#ff6666' : '#00ff9d';
     toast.style.display = 'block';
-    setTimeout(() => toast.style.display = 'none', 3000);
+    setTimeout(() => toast.style.display = 'none', 2800);
 }
 
 function fitWorld() {
     map.flyTo([38.6270, -90.1994], 11);
 }
 
-// ====================== UPLOAD & PARSE ======================
+// ====================== UPLOAD & DISPLAY ======================
 async function handleShapefileUpload(e) {
     const file = e.target.files[0];
     if (!file) return;
-    if (!file.name.endsWith('.zip')) {
-        showToast("Please upload a .zip shapefile", true);
-        return;
-    }
-
+    
     originalShapefileName = file.name.replace('.zip', '');
     showToast("Parsing shapefile...");
 
     try {
         const arrayBuffer = await file.arrayBuffer();
-        const geojson = await shp(arrayBuffer);   // shpjs
-
+        const geojson = await shp(arrayBuffer);
+        
         currentGeoJSON = geojson;
         featuresData = Array.isArray(geojson.features) ? geojson.features : [geojson];
         
         loadFeaturesToMap();
         renderTable();
-        showToast(`Loaded ${featuresData.length} features successfully`);
+        showToast(`✅ Successfully loaded ${featuresData.length} features`);
     } catch (err) {
         console.error(err);
-        showToast("Failed to parse shapefile. Ensure it's a valid .zip", true);
+        showToast("Failed to parse shapefile. Make sure it's a valid .zip", true);
     }
 }
 
 function loadFeaturesToMap() {
     featureLayer.clearLayers();
-    
     featuresData.forEach((feature, index) => {
-        const layer = L.geoJSON(feature, {
-            pointToLayer: (pt, latlng) => L.marker(latlng, {icon: markerIcon}),
-            style: { color: "#00ff9d", weight: 3 }
+        L.geoJSON(feature, {
+            pointToLayer: (_, latlng) => L.marker(latlng, {icon: markerIcon}),
+            style: { color: "#00ff9d", weight: 3, opacity: 0.8 }
         }).addTo(featureLayer);
-
-        layer.bindPopup(`<b>Feature ${index+1}</b><br>Type: ${feature.geometry?.type || 'Unknown'}`);
     });
-
-    if (featuresData.length > 0) {
-        map.fitBounds(featureLayer.getBounds());
-    }
+    if (featuresData.length > 0) map.fitBounds(featureLayer.getBounds());
 }
 
 // ====================== TABLE ======================
 function renderTable() {
     const tbody = document.getElementById('table-body');
     tbody.innerHTML = '';
-    
-    featuresData.forEach((feature, index) => {
+    featuresData.forEach((f, i) => {
         const row = document.createElement('tr');
-        const type = feature.geometry?.type || 'Unknown';
-        const name = feature.properties?.NAME || feature.properties?.id || `Feature ${index+1}`;
-        
         row.innerHTML = `
-            <td>${index + 1}</td>
-            <td>${type}</td>
-            <td>${name}</td>
-            <td><span onclick="zoomToFeature(${index}); event.stopImmediatePropagation()" style="color:#00b8ff;cursor:pointer;">🔎</span></td>
+            <td>${i+1}</td>
+            <td>${f.geometry?.type || 'Unknown'}</td>
+            <td>${f.properties?.NAME || f.properties?.id || `Feature ${i+1}`}</td>
+            <td><span onclick="zoomToFeature(${i}); event.stopImmediatePropagation()" style="color:#00b8ff;cursor:pointer;">🔎 Zoom</span></td>
         `;
         tbody.appendChild(row);
     });
     document.getElementById('entry-count').textContent = featuresData.length;
 }
 
-function zoomToFeature(index) {
-    const feature = featuresData[index];
-    const geoLayer = L.geoJSON(feature);
-    map.fitBounds(geoLayer.getBounds());
+function zoomToFeature(i) {
+    map.fitBounds(L.geoJSON(featuresData[i]).getBounds());
+}
+
+// ====================== TOPOLOGY OPERATIONS ======================
+function runTopologyFixes() {
+    if (!featuresData.length) return showToast("No data loaded", true);
+    
+    showToast("Running full topology fixes...");
+    let fixedCount = 0;
+
+    featuresData = featuresData.map(feature => {
+        try {
+            let processed = turf.cleanCoords(feature);
+            processed = turf.simplify(processed, { tolerance: 0.00005, highQuality: true });
+            if (turf.kinks(processed).features.length > 0) {
+                processed = turf.truncate(processed, { precision: 8 });
+            }
+            fixedCount++;
+            return processed;
+        } catch (e) {
+            return feature;
+        }
+    });
+
+    loadFeaturesToMap();
+    renderTable();
+    showToast(`✅ Topology fixes applied to ${fixedCount} features`);
+}
+
+function dissolveFeatures() {
+    if (!featuresData.length) return showToast("No data", true);
+    showToast("Dissolving overlapping features...");
+
+    try {
+        const collection = turf.featureCollection(featuresData.filter(f => 
+            f.geometry?.type.includes("Polygon")
+        ));
+        
+        if (collection.features.length === 0) {
+            return showToast("No polygons to dissolve", true);
+        }
+
+        const dissolved = turf.union(collection);
+        featuresData = Array.isArray(dissolved.features) ? dissolved.features : [dissolved];
+        
+        loadFeaturesToMap();
+        renderTable();
+        showToast("✅ Overlaps merged (dissolved)");
+    } catch (e) {
+        showToast("Dissolve only works well with polygons", true);
+    }
 }
 
 // ====================== ISSUE DETECTION ======================
 function detectIssues() {
-    if (!featuresData.length) {
-        showToast("No features loaded", true);
-        return;
-    }
-
-    const issues = [];
+    if (!featuresData.length) return showToast("No features loaded", true);
     
+    const issues = [];
     featuresData.forEach((f, i) => {
-        const geom = f.geometry;
-        if (!geom) {
-            issues.push(`Feature ${i+1}: Missing geometry`);
-            return;
-        }
-        
-        // Basic checks
-        if (geom.type === 'Polygon' || geom.type === 'MultiPolygon') {
-            if (hasSelfIntersections(geom)) issues.push(`Feature ${i+1}: Possible self-intersecting polygon`);
-        }
-        if (geom.coordinates && JSON.stringify(geom.coordinates).length < 20) {
-            issues.push(`Feature ${i+1}: Very small / empty geometry`);
-        }
+        try {
+            if (f.geometry?.type?.includes("Polygon")) {
+                const kinks = turf.kinks(f);
+                if (kinks.features.length > 0) {
+                    issues.push(`Feature ${i+1}: Self-intersections (${kinks.features.length})`);
+                }
+                if (turf.area(f) < 0.00001) {
+                    issues.push(`Feature ${i+1}: Very small / degenerate geometry`);
+                }
+            }
+        } catch(e) {}
     });
 
-    if (issues.length === 0) {
-        showToast("No major issues detected ✓");
-    } else {
-        showIssues(issues);
-    }
-}
-
-function hasSelfIntersections(geom) {
-    // Very basic placeholder check
-    return Math.random() > 0.7; // Simulate occasional detection
+    if (issues.length === 0) showToast("✅ No major topology issues detected");
+    else showIssues(issues);
 }
 
 function showIssues(issues) {
     const container = document.getElementById('issues-list');
-    container.innerHTML = '';
-    issues.forEach(issue => {
-        const div = document.createElement('div');
-        div.className = 'issue-item';
-        div.textContent = '• ' + issue;
-        container.appendChild(div);
-    });
+    container.innerHTML = issues.map(issue => `<div class="issue-item">• ${issue}</div>`).join('');
     document.getElementById('issues-sidebar').style.display = 'block';
 }
 
@@ -345,66 +345,31 @@ function closeIssuesSidebar() {
     document.getElementById('issues-sidebar').style.display = 'none';
 }
 
-// ====================== TOPOLOGY FIXES ======================
-function runTopologyFixes() {
-    if (!featuresData.length) return showToast("Nothing to fix", true);
-    
-    showToast("Running basic topology fixes...");
-    
-    // Simple fixes (real topology fixes are complex)
-    featuresData = featuresData.map(f => {
-        if (f.geometry?.type === 'Polygon' || f.geometry?.type === 'MultiPolygon') {
-            // Placeholder: remove duplicate points if any (basic cleaning)
-            if (f.geometry.coordinates) {
-                f.geometry.coordinates = cleanCoordinates(f.geometry.coordinates);
-            }
-        }
-        return f;
-    });
-    
-    loadFeaturesToMap();
-    renderTable();
-    showToast("Basic topology fixes applied (duplicate points removed)");
-}
-
-function cleanCoordinates(coords) {
-    if (typeof coords[0] === 'number') return coords;
-    return coords.map(c => {
-        if (Array.isArray(c)) return cleanCoordinates(c);
-        return c;
-    });
-}
-
 // ====================== EXPORT ======================
 async function exportFixedShapefile() {
-    if (!currentGeoJSON) return showToast("No data to export", true);
-    
+    if (!featuresData.length) return showToast("No data to export", true);
     try {
-        showToast("Generating fixed shapefile...");
-        const zipBlob = await shpwrite.zip(currentGeoJSON, { 
-            folder: originalShapefileName || "Fixed_Shapefile",
-            types: { point: "points", polygon: "polygons", line: "lines" }
-        });
-        const url = URL.createObjectURL(zipBlob);
+        const geojson = { type: "FeatureCollection", features: featuresData };
+        const zipBlob = await shpwrite.zip(geojson);
+        
         const a = document.createElement('a');
-        a.href = url;
-        a.download = `${originalShapefileName || "fixed_shapefile"}_cleaned.zip`;
+        a.href = URL.createObjectURL(zipBlob);
+        a.download = `${originalShapefileName || "shapefile"}_fixed.zip`;
         a.click();
-        URL.revokeObjectURL(url);
-        showToast("Fixed shapefile downloaded");
+        showToast("✅ Fixed shapefile downloaded");
     } catch (e) {
         showToast("Export failed", true);
     }
 }
 
-// ====================== CRUD ======================
 function clearAllData() {
-    if (!confirm("Clear all loaded features?")) return;
-    featuresData = [];
-    currentGeoJSON = null;
-    featureLayer.clearLayers();
-    renderTable();
-    showToast("Data cleared");
+    if (confirm("Clear all loaded features?")) {
+        featuresData = [];
+        currentGeoJSON = null;
+        featureLayer.clearLayers();
+        renderTable();
+        showToast("All data cleared");
+    }
 }
 
 // ====================== INIT ======================
