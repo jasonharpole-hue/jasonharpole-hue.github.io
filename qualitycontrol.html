@@ -141,6 +141,7 @@
         <button onclick="runTopologyFixes()">🛠️ Full Topology Fix</button>
         <button onclick="dissolveFeatures()">🔗 Dissolve Overlaps</button>
         <button onclick="exportFixedShapefile()">📦 Export Fixed Shapefile</button>
+        <button onclick="Homepage()">📦 Home</button>
         <button onclick="fitWorld()">🌍 Reset View</button>
     </div>
 </header>
@@ -286,6 +287,11 @@ function runTopologyFixes() {
     loadFeaturesToMap();
     renderTable();
     showToast(`✅ Topology fixes applied to ${fixedCount} features`);
+}
+
+    // ====================== PATROL ======================
+function Homepage() {
+    window.open('https://jasonharpole-hue.github.io/', '_blank');
 }
 
 function dissolveFeatures() {
