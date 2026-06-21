@@ -163,12 +163,13 @@
         <button onclick="addNewEntry()">+ Manual Add</button>
         <button onclick="toggleSidebar()">🗺️ Layers</button>
         <button onclick="openPatrolSystem()">⚙️ Advanced Patrol</button>
+        <button onclick="openQualitycontrolSystem()">⚙️ Quality Control</button>
         <button onclick="exportCSV()">📤 CSV</button>
         <button onclick="exportShapefile()">📦 Shapefile (.zip)</button>
         <button onclick="importCSV()">📥 Import CSV</button>
         <button onclick="fitWorld()">🌍 Reset View</button>
     </div>
-</header>
+</header>n
 <div id="container">
     <div id="map"></div>
     <div id="database-panel">
@@ -248,6 +249,10 @@ function loadFromLocalStorage() {
 // ====================== PATROL ======================
 function openPatrolSystem() {
     window.open('https://jasonharpole-hue.github.io/patrol.html', '_blank');
+}
+    // ====================== PATROL ======================
+function openQualitycontrolSystem() {
+    window.open('https://jasonharpole-hue.github.io/qualitycontrol.html', '_blank');
 }
 
 // ====================== MARKERS ======================
