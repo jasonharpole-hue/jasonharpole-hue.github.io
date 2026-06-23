@@ -40,7 +40,7 @@
 <header>
     <div class="logo">🤖 ROBOT MANAGEMENT GIS</div>
     <div style="display:flex; gap:8px; flex-wrap:wrap;">
-        <button id="draw-btn" onclick="toggleDrawControl()">✏️ Draw Tools (OFF)</button>
+        <button id="draw-btn" onclick="toggleDrawControl()" class="active">✏️ Draw Tools (ON)</button>
         <button onclick="toggleLayerPanel()">🗺️ Layers</button>
         <button onclick="openPatrolSystem()">⚙️ Patrol</button>
         <button onclick="openQualitycontrolSystem()">⚙️ Quality Control</button>
@@ -76,14 +76,13 @@
 <div id="toast" class="toast"></div>
 
 <script>
-// ====================== MAP SETUP ======================
-const map = L.map('map', { zoomControl: true }).setView([38.6270, -90.1994], 11);
+// ====================== CORE SETUP ======================
+const map = L.map('map').setView([38.6270, -90.1994], 11);
 
-const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' });
+const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 });
 const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 });
 
-let currentBase = osm;
-osm.addTo(map);
+let currentBase = osm; osm.addTo(map);
 
 const pointLayer = L.layerGroup().addTo(map);
 const lineLayer = L.layerGroup().addTo(map);
@@ -92,59 +91,54 @@ const drawnItems = new L.FeatureGroup().addTo(map);
 
 let features = [];
 let drawControl = null;
-let drawEnabled = false;
 
+// Icon
 const robotIcon = L.divIcon({ className: 'robot-marker', html: '🤖', iconSize: [32, 32], iconAnchor: [16, 16] });
 
-// ====================== DRAW CONTROL ======================
-function initDrawControl() {
-    if (drawControl) return;
-    
-    drawControl = new L.Control.Draw({
+// ====================== DRAW TOOLS ======================
+function createDrawControl() {
+    return new L.Control.Draw({
         position: 'topleft',
         draw: {
-            polygon: { shapeOptions: { color: '#00ff9d', fillOpacity: 0.25 } },
+            marker: { icon: robotIcon },
             polyline: { shapeOptions: { color: '#00b8ff' } },
+            polygon: { shapeOptions: { color: '#00ff9d', fillOpacity: 0.25 } },
             rectangle: false,
             circle: false,
-            circlemarker: false,
-            marker: { icon: robotIcon }
+            circlemarker: false
         },
         edit: { featureGroup: drawnItems }
     });
-    map.addControl(drawControl);
 }
 
 function toggleDrawControl() {
-    drawEnabled = !drawEnabled;
     const btn = document.getElementById('draw-btn');
     
-    if (drawEnabled) {
-        initDrawControl();
-        btn.textContent = "✏️ Draw Tools (ON)";
-        btn.classList.add('active');
-        showToast("Draw toolbar activated. Use the tools on the top-left.");
-    } else {
-        if (drawControl) {
-            map.removeControl(drawControl);
-            drawControl = null;
-        }
+    if (drawControl) {
+        map.removeControl(drawControl);
+        drawControl = null;
         btn.textContent = "✏️ Draw Tools (OFF)";
         btn.classList.remove('active');
         showToast("Draw tools disabled");
+    } else {
+        drawControl = createDrawControl();
+        map.addControl(drawControl);
+        btn.textContent = "✏️ Draw Tools (ON)";
+        btn.classList.add('active');
+        showToast("✅ Draw tools active — use the toolbar on the top left");
     }
 }
 
-// Event handlers for drawing
-map.on(L.Draw.Event.CREATED, function(e) {
+// Drawing events
+map.on(L.Draw.Event.CREATED, function (e) {
     const layer = e.layer;
     drawnItems.addLayer(layer);
 
     const geo = layer.toGeoJSON();
     geo.properties = {
         name: prompt("Feature Name:", "New " + e.layerType) || "Untitled",
-        desc: prompt("Description / Status:", "Active"),
-        color: e.layerType === "polyline" ? "#00b8ff" : "#00ff9d"
+        desc: prompt("Description:", "Active deployment"),
+        color: (e.layerType === "polyline") ? "#00b8ff" : "#00ff9d"
     };
 
     features.push(geo);
@@ -153,42 +147,28 @@ map.on(L.Draw.Event.CREATED, function(e) {
     saveToLocalStorage();
 });
 
-map.on(L.Draw.Event.EDITED, function() {
-    refreshLayers();
-    saveToLocalStorage();
-});
+map.on(L.Draw.Event.EDITED, () => { refreshLayers(); saveToLocalStorage(); });
+map.on(L.Draw.Event.DELETED, () => { refreshLayers(); saveToLocalStorage(); });
 
-map.on(L.Draw.Event.DELETED, function() {
-    refreshLayers();
-    saveToLocalStorage();
-});
-
-// ====================== LAYERS & REFRESH ======================
+// ====================== REFRESH & LAYERS ======================
 function refreshLayers() {
-    pointLayer.clearLayers();
-    lineLayer.clearLayers();
-    polygonLayer.clearLayers();
-    drawnItems.clearLayers();
+    pointLayer.clearLayers(); lineLayer.clearLayers(); polygonLayer.clearLayers(); drawnItems.clearLayers();
 
     features.forEach(f => {
         let layer;
-        const coords = f.geometry.coordinates;
         const props = f.properties || {};
+        const coords = f.geometry.coordinates;
 
         if (f.geometry.type === "Point") {
-            layer = L.marker([coords[1], coords[0]], { icon: robotIcon }).addTo(pointLayer);
+            layer = L.marker([coords[1], coords[0]], {icon: robotIcon}).addTo(pointLayer);
         } else if (f.geometry.type === "LineString") {
-            layer = L.polyline(coords.map(c => [c[1], c[0]]), { color: props.color || '#00b8ff' }).addTo(lineLayer);
+            layer = L.polyline(coords.map(c => [c[1], c[0]]), {color: props.color || '#00b8ff'}).addTo(lineLayer);
         } else if (f.geometry.type === "Polygon") {
-            layer = L.polygon(coords[0].map(c => [c[1], c[0]]), {
-                color: props.color || '#00ff9d',
-                fillOpacity: 0.25
-            }).addTo(polygonLayer);
+            layer = L.polygon(coords[0].map(c => [c[1], c[0]]), {color: props.color || '#00ff9d', fillOpacity: 0.25}).addTo(polygonLayer);
         }
 
         if (layer) {
-            layer.feature = f;
-            layer.bindPopup(`<b>${props.name}</b><br>${props.desc || ''}<br><small>${f.geometry.type}</small>`);
+            layer.bindPopup(`<b>${props.name}</b><br>${props.desc||''}<br><small>${f.geometry.type}</small>`);
             drawnItems.addLayer(layer);
         }
     });
@@ -196,15 +176,9 @@ function refreshLayers() {
 
 function toggleLayer(n) {
     const layers = [pointLayer, lineLayer, polygonLayer];
-    const ids = ['toggle-points','toggle-lines','toggle-polygons'];
-    const el = document.getElementById(ids[n]);
-    if (map.hasLayer(layers[n])) {
-        map.removeLayer(layers[n]);
-        el.classList.remove('active');
-    } else {
-        map.addLayer(layers[n]);
-        el.classList.add('active');
-    }
+    const el = document.getElementById(['toggle-points','toggle-lines','toggle-polygons'][n]);
+    map.hasLayer(layers[n]) ? map.removeLayer(layers[n]) : map.addLayer(layers[n]);
+    el.classList.toggle('active');
 }
 
 // ====================== TABLE ======================
@@ -217,8 +191,8 @@ function renderTable() {
         row.innerHTML = `
             <td>${f.geometry.type}</td>
             <td>${p.name || 'Unnamed'}</td>
-            <td>${(p.desc || '').substring(0, 50)}${(p.desc || '').length > 50 ? '...' : ''}</td>
-            <td><span class="edit-btn" onclick="editFeature(${i}); event.stopImmediatePropagation()">✏️</span> <span class="delete-btn" onclick="deleteFeature(${i}); event.stopImmediatePropagation()">×</span></td>
+            <td>${(p.desc || '').substring(0,55)}${(p.desc||'').length>55?'...':''}</td>
+            <td><span class="edit-btn" onclick="editFeature(${i});event.stopImmediatePropagation()">✏️</span> <span class="delete-btn" onclick="deleteFeature(${i});event.stopImmediatePropagation()">×</span></td>
         `;
         tbody.appendChild(row);
     });
@@ -229,38 +203,31 @@ function editFeature(i) {
     const p = features[i].properties;
     p.name = prompt("Name:", p.name) || p.name;
     p.desc = prompt("Description:", p.desc) || p.desc;
-    refreshLayers();
-    renderTable();
-    saveToLocalStorage();
+    refreshLayers(); renderTable(); saveToLocalStorage();
 }
 
 function deleteFeature(i) {
-    if (confirm("Delete this feature?")) {
+    if (confirm("Delete?")) {
         features.splice(i, 1);
-        refreshLayers();
-        renderTable();
-        saveToLocalStorage();
+        refreshLayers(); renderTable(); saveToLocalStorage();
     }
 }
 
-// ====================== STORAGE, EXPORT, UTILS ======================
-function saveToLocalStorage() {
-    localStorage.setItem('robot_gis_features', JSON.stringify(features));
-}
-
+// ====================== STORAGE & EXPORT ======================
+function saveToLocalStorage() { localStorage.setItem('robot_gis_features', JSON.stringify(features)); }
 function loadFromLocalStorage() {
     const saved = localStorage.getItem('robot_gis_features');
     if (saved) features = JSON.parse(saved);
 }
 
-function exportGeoJSON() { /* same as before */ 
-    if (!features.length) return showToast("No data", true);
-    const data = JSON.stringify({type:"FeatureCollection", features}, null, 2);
+function exportGeoJSON() {
+    if (!features.length) return showToast("Nothing to export", true);
+    const data = JSON.stringify({type: "FeatureCollection", features}, null, 2);
     downloadFile(data, `robot_gis_${new Date().toISOString().slice(0,10)}.geojson`, 'application/json');
 }
 
 async function exportShapefile() {
-    if (!features.length) return showToast("No data", true);
+    if (!features.length) return showToast("Nothing to export", true);
     try {
         const zip = await shpwrite.zip({type:"FeatureCollection", features});
         downloadFile(zip, `robot_gis_${new Date().toISOString().slice(0,10)}.zip`);
@@ -271,7 +238,7 @@ function downloadFile(content, filename, type = 'application/octet-stream') {
     const blob = content instanceof Blob ? content : new Blob([content], {type});
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = filename; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    a.href = url; a.download = filename; a.click();
     URL.revokeObjectURL(url);
 }
 
@@ -281,11 +248,10 @@ function showToast(msg, error = false) {
     t.style.background = error ? '#ff6666' : '#00ff9d';
     t.style.color = error ? '#fff' : '#000';
     t.style.display = 'block';
-    setTimeout(() => t.style.display = 'none', 2800);
+    setTimeout(() => t.style.display = 'none', 2500);
 }
 
-// Other functions (toggleLayerPanel, toggleBaseLayer, clearAllData, loadDemoData, openPatrolSystem, openQualitycontrolSystem) remain the same as previous version
-
+// Other UI functions
 function toggleLayerPanel() {
     const sb = document.getElementById('sidebar');
     sb.style.display = sb.style.display === 'none' ? 'block' : 'none';
@@ -300,41 +266,36 @@ function toggleBaseLayer(n) {
 }
 
 function clearAllData() {
-    if (confirm("Clear everything?")) {
+    if (confirm("Clear all data?")) {
         features = [];
-        refreshLayers();
-        renderTable();
-        saveToLocalStorage();
+        refreshLayers(); renderTable(); saveToLocalStorage();
     }
 }
 
 function loadDemoData() {
-    features = [ /* same demo data as before */ 
+    features = [
         {type:"Feature", geometry:{type:"Point", coordinates:[-90.1994,38.6270]}, properties:{name:"R-Alpha", desc:"Downtown Patrol"}},
         {type:"Feature", geometry:{type:"Point", coordinates:[-90.2100,38.6350]}, properties:{name:"R-Beta", desc:"Forest Park"}},
         {type:"Feature", geometry:{type:"LineString", coordinates:[[-90.1994,38.6270],[-90.1800,38.6120],[-90.1500,38.6500]]}, properties:{name:"Patrol Route A", desc:"Main loop", color:"#00b8ff"}},
         {type:"Feature", geometry:{type:"Polygon", coordinates:[[[-90.2200,38.5900],[-90.2500,38.6500],[-90.1800,38.6700],[-90.2200,38.5900]]]}, properties:{name:"South Zone", desc:"Restricted area"}}
     ];
-    refreshLayers();
-    renderTable();
-    saveToLocalStorage();
-    showToast("Demo loaded");
+    refreshLayers(); renderTable(); saveToLocalStorage(); showToast("Demo loaded");
 }
 
 function openPatrolSystem() { window.open('https://jasonharpole-hue.github.io/patrol.html', '_blank'); }
 function openQualitycontrolSystem() { window.open('https://jasonharpole-hue.github.io/qualitycontrol.html', '_blank'); }
 
-// ====================== INIT ======================
-window.onload = function() {
+// ====================== START ======================
+window.onload = () => {
     loadFromLocalStorage();
     if (features.length === 0) loadDemoData();
     refreshLayers();
     renderTable();
     
-    // Auto-enable draw tools
+    // Enable draw tools by default
     setTimeout(() => {
-        toggleDrawControl();
-    }, 800);
+        if (!drawControl) toggleDrawControl();
+    }, 600);
 };
 </script>
 </body>
