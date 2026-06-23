@@ -1,3 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Robot Management GIS</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.draw@1.0.4/dist/leaflet.draw.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.draw@1.0.4/dist/leaflet.draw.js"></script>
+    <script src="https://unpkg.com/@mapbox/shp-write@latest/shpwrite.js"></script>
+
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0a0a0a; color: #e0e0e0; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        header { background: rgba(0,0,0,0.95); padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #333; }
+        .logo { font-size: 26px; font-weight: bold; background: linear-gradient(90deg, #00ff9d, #00b8ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        button { background: #1f1f1f; color: white; border: 1px solid #444; padding: 8px 16px; border-radius: 6px; cursor: pointer; transition: all 0.2s; }
+        button:hover { background: #333; border-color: #00ff9d; }
+        button.active { background: #004d26; border-color: #00ff9d; color: #00ff9d; }
+        #map { flex: 1; position: relative; }
+        #database-panel { height: 340px; background: #111; border-top: 2px solid #00ff9d; display: flex; flex-direction: column; overflow: hidden; }
+        table { width: 100%; border-collapse: collapse; flex: 1; display: block; }
+        thead { display: block; }
+        tbody { display: block; overflow-y: auto; max-height: calc(340px - 52px); }
+        th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #333; }
+        th { background: #1a1a1a; position: sticky; top: 0; z-index: 10; }
+        tr:hover { background: #1e3a2f; }
+        .delete-btn { color: #ff6666; cursor: pointer; font-size: 18px; }
+        .edit-btn { color: #00b8ff; cursor: pointer; margin-right: 8px; }
+        .sidebar { position: absolute; top: 20px; right: 20px; width: 340px; background: rgba(15,23,42,0.97); border-radius: 12px; padding: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.6); z-index: 1000; max-height: 75vh; overflow-y: auto; border: 1px solid #334155; }
+        .layer-item { padding: 12px 16px; margin: 6px 0; background: #1e2937; border-radius: 8px; cursor: pointer; transition: all 0.2s; }
+        .layer-item:hover { background: #334155; }
+        .layer-item.active { background: #0f3d2a; border: 1px solid #00ff9d; }
+        .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #00ff9d; color: #000; padding: 12px 24px; border-radius: 8px; font-weight: 500; box-shadow: 0 10px 20px rgba(0,0,0,0.5); z-index: 2000; display: none; }
+        .robot-marker { font-size: 28px; line-height: 1; text-shadow: 0 0 8px #00ff9d; }
+    </style>
+</head>
+<body>
+<header>
+    <div class="logo">🤖 ROBOT MANAGEMENT GIS</div>
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button id="draw-btn" onclick="toggleDrawControl()">✏️ Draw Tools (OFF)</button>
+        <button onclick="toggleLayerPanel()">🗺️ Layers</button>
+        <button onclick="openPatrolSystem()">⚙️ Patrol</button>
+        <button onclick="openQualitycontrolSystem()">⚙️ Quality Control</button>
+        <button onclick="exportGeoJSON()">📤 GeoJSON</button>
+        <button onclick="exportShapefile()">📦 Shapefile</button>
+        <button onclick="clearAllData()">🗑️ Clear All</button>
+    </div>
+</header>
+
+<div id="map"></div>
+
+<div id="database-panel">
+    <div style="padding:10px 20px; background:#1a1a1a; display:flex; justify-content:space-between;">
+        <h3>Fleet &amp; Features (<span id="entry-count">0</span>)</h3>
+        <button onclick="loadDemoData()">Load Demo</button>
+    </div>
+    <table id="data-table">
+        <thead><tr><th>Type</th><th>Name</th><th>Description</th><th>Actions</th></tr></thead>
+        <tbody id="table-body"></tbody>
+    </table>
+</div>
+
+<div id="sidebar" class="sidebar" style="display:none;">
+    <h3 style="color:#00ff9d;">Map Layers</h3>
+    <div class="layer-item active" onclick="toggleBaseLayer(0)" id="layer-osm">🌍 OpenStreetMap</div>
+    <div class="layer-item" onclick="toggleBaseLayer(1)" id="layer-sat">🛰️ Satellite</div>
+    <h4 style="margin:20px 0 10px;">Feature Layers</h4>
+    <div class="layer-item active" id="toggle-points" onclick="toggleLayer(0)">🤖 Points</div>
+    <div class="layer-item active" id="toggle-lines" onclick="toggleLayer(1)">📏 Lines</div>
+    <div class="layer-item active" id="toggle-polygons" onclick="toggleLayer(2)">🔺 Polygons</div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+// ====================== MAP SETUP ======================
+const map = L.map('map', { zoomControl: true }).setView([38.6270, -90.1994], 11);
+
+const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' });
+const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 });
+
+let currentBase = osm;
+osm.addTo(map);
+
+const pointLayer = L.layerGroup().addTo(map);
+const lineLayer = L.layerGroup().addTo(map);
+const polygonLayer = L.layerGroup().addTo(map);
+const drawnItems = new L.FeatureGroup().addTo(map);
+
+let features = [];
+let drawControl = null;
+let drawEnabled = false;
+
+const robotIcon = L.divIcon({ className: 'robot-marker', html: '🤖', iconSize: [32, 32], iconAnchor: [16, 16] });
+
+// ====================== DRAW CONTROL ======================
+function initDrawControl() {
+    if (drawControl) return;
+    
+    drawControl = new L.Control.Draw({
+        position: 'topleft',
+        draw: {
+            polygon: { shapeOptions: { color: '#00ff9d', fillOpacity: 0.25 } },
+            polyline: { shapeOptions: { color: '#00b8ff' } },
+            rectangle: false,
+            circle: false,
+            circlemarker: false,
+            marker: { icon: robotIcon }
+        },
+        edit: { featureGroup: drawnItems }
+    });
+    map.addControl(drawControl);
+}
+
+function toggleDrawControl() {
+    drawEnabled = !drawEnabled;
+    const btn = document.getElementById('draw-btn');
+    
+    if (drawEnabled) {
+        initDrawControl();
+        btn.textContent = "✏️ Draw Tools (ON)";
+        btn.classList.add('active');
+        showToast("Draw toolbar activated. Use the tools on the top-left.");
+    } else {
+        if (drawControl) {
+            map.removeControl(drawControl);
+            drawControl = null;
+        }
+        btn.textContent = "✏️ Draw Tools (OFF)";
+        btn.classList.remove('active');
+        showToast("Draw tools disabled");
+    }
+}
+
+// Event handlers for drawing
+map.on(L.Draw.Event.CREATED, function(e) {
+    const layer = e.layer;
+    drawnItems.addLayer(layer);
+
+    const geo = layer.toGeoJSON();
+    geo.properties = {
+        name: prompt("Feature Name:", "New " + e.layerType) || "Untitled",
+        desc: prompt("Description / Status:", "Active"),
+        color: e.layerType === "polyline" ? "#00b8ff" : "#00ff9d"
+    };
+
+    features.push(geo);
+    refreshLayers();
+    renderTable();
+    saveToLocalStorage();
+});
+
+map.on(L.Draw.Event.EDITED, function() {
+    refreshLayers();
+    saveToLocalStorage();
+});
+
+map.on(L.Draw.Event.DELETED, function() {
+    refreshLayers();
+    saveToLocalStorage();
+});
+
+// ====================== LAYERS & REFRESH ======================
+function refreshLayers() {
+    pointLayer.clearLayers();
+    lineLayer.clearLayers();
+    polygonLayer.clearLayers();
+    drawnItems.clearLayers();
+
+    features.forEach(f => {
+        let layer;
+        const coords = f.geometry.coordinates;
+        const props = f.properties || {};
+
+        if (f.geometry.type === "Point") {
+            layer = L.marker([coords[1], coords[0]], { icon: robotIcon }).addTo(pointLayer);
+        } else if (f.geometry.type === "LineString") {
+            layer = L.polyline(coords.map(c => [c[1], c[0]]), { color: props.color || '#00b8ff' }).addTo(lineLayer);
+        } else if (f.geometry.type === "Polygon") {
+            layer = L.polygon(coords[0].map(c => [c[1], c[0]]), {
+                color: props.color || '#00ff9d',
+                fillOpacity: 0.25
+            }).addTo(polygonLayer);
+        }
+
+        if (layer) {
+            layer.feature = f;
+            layer.bindPopup(`<b>${props.name}</b><br>${props.desc || ''}<br><small>${f.geometry.type}</small>`);
+            drawnItems.addLayer(layer);
+        }
+    });
+}
+
+function toggleLayer(n) {
+    const layers = [pointLayer, lineLayer, polygonLayer];
+    const ids = ['toggle-points','toggle-lines','toggle-polygons'];
+    const el = document.getElementById(ids[n]);
+    if (map.hasLayer(layers[n])) {
+        map.removeLayer(layers[n]);
+        el.classList.remove('active');
+    } else {
+        map.addLayer(layers[n]);
+        el.classList.add('active');
+    }
+}
+
+// ====================== TABLE ======================
+function renderTable() {
+    const tbody = document.getElementById('table-body');
+    tbody.innerHTML = '';
+    features.forEach((f, i) => {
+        const p = f.properties || {};
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${f.geometry.type}</td>
+            <td>${p.name || 'Unnamed'}</td>
+            <td>${(p.desc || '').substring(0, 50)}${(p.desc || '').length > 50 ? '...' : ''}</td>
+            <td><span class="edit-btn" onclick="editFeature(${i}); event.stopImmediatePropagation()">✏️</span> <span class="delete-btn" onclick="deleteFeature(${i}); event.stopImmediatePropagation()">×</span></td>
+        `;
+        tbody.appendChild(row);
+    });
+    document.getElementById('entry-count').textContent = features.length;
+}
+
+function editFeature(i) {
+    const p = features[i].properties;
+    p.name = prompt("Name:", p.name) || p.name;
+    p.desc = prompt("Description:", p.desc) || p.desc;
+    refreshLayers();
+    renderTable();
+    saveToLocalStorage();
+}
+
+function deleteFeature(i) {
+    if (confirm("Delete this feature?")) {
+        features.splice(i, 1);
+        refreshLayers();
+        renderTable();
+        saveToLocalStorage();
+    }
+}
+
+// ====================== STORAGE, EXPORT, UTILS ======================
+function saveToLocalStorage() {
+    localStorage.setItem('robot_gis_features', JSON.stringify(features));
+}
+
+function loadFromLocalStorage() {
+    const saved = localStorage.getItem('robot_gis_features');
+    if (saved) features = JSON.parse(saved);
+}
+
 function exportGeoJSON() { /* same as before */ 
     if (!features.length) return showToast("No data", true);
     const data = JSON.stringify({type:"FeatureCollection", features}, null, 2);
@@ -71,3 +326,16 @@ function openQualitycontrolSystem() { window.open('https://jasonharpole-hue.gith
 
 // ====================== INIT ======================
 window.onload = function() {
+    loadFromLocalStorage();
+    if (features.length === 0) loadDemoData();
+    refreshLayers();
+    renderTable();
+    
+    // Auto-enable draw tools
+    setTimeout(() => {
+        toggleDrawControl();
+    }, 800);
+};
+</script>
+</body>
+</html>
