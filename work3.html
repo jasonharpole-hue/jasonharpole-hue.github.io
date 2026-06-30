@@ -7,7 +7,6 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/@mapbox/shp-write@latest/shpwrite.js"></script>
-
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -155,7 +154,6 @@
         </table>
     </div>
 </div>
-
 <div id="sidebar" class="sidebar" style="display: none;">
     <h3 style="margin-bottom: 15px; color: #00ff9d;">Map Layers</h3>
     <div class="layer-item active" id="layer-osm" onclick="toggleBaseLayer(0)">🌍 OpenStreetMap</div>
@@ -163,15 +161,12 @@
     <h4 style="margin:20px 0 10px;">Demo Data</h4>
     <div onclick="loadDemoData()" style="padding:12px; background:#1e2937; border-radius:8px; cursor:pointer; text-align:center;">Load St. Louis Demo</div>
 </div>
-
 <div id="drawing-instructions" class="drawing-instructions">
     Click on map to add points • <span id="draw-type"></span><br>
     <button onclick="finishDrawing()" style="margin-top:8px; background:#00ff9d; color:#000;">Finish</button>
     <button onclick="cancelDrawing()" style="margin-top:8px; background:#ff6666;">Cancel</button>
 </div>
-
 <div id="toast" class="toast"></div>
-
 <script>
 // ====================== MAP SETUP ======================
 let map = L.map('map', { zoomControl: true }).setView([38.6270, -90.1994], 11);
@@ -179,16 +174,13 @@ const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { 
 const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 });
 osm.addTo(map);
 let currentLayer = osm;
-
 let markersData = [], pathsData = [], obstaclesData = [], polygonsData = [];
 let currentTab = 0;
 let addModeEnabled = false;
 let currentDrawingType = null;
 let currentDrawingPoints = [];
 let currentDrawingLayer = null;
-
 const robotIcon = L.divIcon({ className: 'robot-marker', html: '🤖', iconSize: [32, 32], iconAnchor: [16, 16] });
-
 // ====================== PERSISTENCE ======================
 function saveToLocalStorage() {
     localStorage.setItem('robot_fleet', JSON.stringify(markersData));
@@ -196,7 +188,6 @@ function saveToLocalStorage() {
     localStorage.setItem('obstacles_data', JSON.stringify(obstaclesData));
     localStorage.setItem('polygons_data', JSON.stringify(polygonsData));
 }
-
 function loadFromLocalStorage() {
     try {
         if (localStorage.getItem('robot_fleet')) {
@@ -218,19 +209,17 @@ function loadFromLocalStorage() {
         renderCurrentTable();
     } catch(e) { console.error(e); }
 }
-
 // ====================== DRAWING ======================
 function startDrawing(type) {
     cancelDrawing();
     currentDrawingType = type;
     currentDrawingPoints = [];
     document.getElementById('drawing-instructions').style.display = 'block';
-    document.getElementById('draw-type').textContent = 
-        type === 'path' ? 'PATH (Green)' : 
+    document.getElementById('draw-type').textContent =
+        type === 'path' ? 'PATH (Green)' :
         type === 'obstacle' ? 'OBSTACLE (Red)' : 'POLYGON (Blue)';
     map.getContainer().style.cursor = 'crosshair';
 }
-
 function cancelDrawing() {
     if (currentDrawingLayer) map.removeLayer(currentDrawingLayer);
     currentDrawingType = null;
@@ -239,21 +228,18 @@ function cancelDrawing() {
     document.getElementById('drawing-instructions').style.display = 'none';
     map.getContainer().style.cursor = '';
 }
-
 function finishDrawing() {
     const minPoints = currentDrawingType === 'polygon' ? 3 : 2;
     if (currentDrawingPoints.length < minPoints) {
         showToast(`Need at least ${minPoints} points for ${currentDrawingType}`, true);
         return;
     }
-
-    const defaultName = currentDrawingType === 'polygon' ? "Zone-A1" : 
+    const defaultName = currentDrawingType === 'polygon' ? "Zone-A1" :
                        currentDrawingType === 'path' ? "Route-A1" : "Obstacle-Zone1";
     const name = prompt("Name for this " + currentDrawingType + ":", defaultName);
     if (!name) return cancelDrawing();
-
     const desc = prompt("Description:", "");
-    
+   
     const newFeature = {
         id: Date.now(),
         name: name,
@@ -261,7 +247,6 @@ function finishDrawing() {
         desc: desc || '',
         type: currentDrawingType
     };
-
     if (currentDrawingType === 'path') {
         pathsData.push(newFeature);
         addLineToMap(newFeature);
@@ -272,13 +257,11 @@ function finishDrawing() {
         polygonsData.push(newFeature);
         addPolygonToMap(newFeature);
     }
-
     renderCurrentTable();
     saveToLocalStorage();
     showToast(currentDrawingType.charAt(0).toUpperCase() + currentDrawingType.slice(1) + " created successfully");
     cancelDrawing();
 }
-
 function addLineToMap(line) {
     const color = line.type === 'path' ? '#00ff9d' : '#ff4444';
     const polyline = L.polyline(line.points.map(p => [p.lat, p.lng]), {
@@ -286,11 +269,10 @@ function addLineToMap(line) {
         weight: line.type === 'path' ? 5 : 6,
         opacity: 0.9
     }).addTo(map);
-    
+   
     polyline.bindPopup(`<b>${line.name}</b><br>${line.desc}<br><small>${line.type.toUpperCase()} • ${line.points.length} points</small>`);
     line.polyline = polyline;
 }
-
 function addPolygonToMap(polygon) {
     const poly = L.polygon(polygon.points.map(p => [p.lat, p.lng]), {
         color: '#00b8ff',
@@ -298,38 +280,32 @@ function addPolygonToMap(polygon) {
         fillOpacity: 0.25,
         weight: 4
     }).addTo(map);
-    
+   
     poly.bindPopup(`<b>${polygon.name}</b><br>${polygon.desc}<br><small>POLYGON • ${polygon.points.length} points</small>`);
     polygon.polygon = poly;
 }
-
 // ====================== MARKERS ======================
 function addMarkerToMap(lat, lng, name, desc) {
     const marker = L.marker([lat, lng], { icon: robotIcon }).addTo(map);
     marker.bindPopup(`<b>${name}</b><br>${desc}<br><small>Lat: ${lat.toFixed(4)} | Lng: ${lng.toFixed(4)}</small>`);
     return marker;
 }
-
 // ====================== TABLE ======================
 function switchTab(tab) {
     currentTab = tab;
     document.querySelectorAll('.tab-btn').forEach((b, i) => b.classList.toggle('active', i === tab));
     renderCurrentTable();
 }
-
 function renderCurrentTable() {
     const tbody = document.getElementById('table-body');
     const header = document.getElementById('table-header');
     tbody.innerHTML = '';
-
-    let data = currentTab === 0 ? markersData : 
-               currentTab === 1 ? pathsData : 
+    let data = currentTab === 0 ? markersData :
+               currentTab === 1 ? pathsData :
                currentTab === 2 ? obstaclesData : polygonsData;
-
-    header.innerHTML = currentTab === 0 ? 
+    header.innerHTML = currentTab === 0 ?
         `<tr><th>ID</th><th>Name</th><th>Lat</th><th>Lng</th><th>Description</th><th>Actions</th></tr>` :
         `<tr><th>ID</th><th>Name</th><th>Points</th><th>Description</th><th>Actions</th></tr>`;
-
     data.forEach((item, i) => {
         const row = document.createElement('tr');
         if (currentTab === 0) {
@@ -358,7 +334,6 @@ function renderCurrentTable() {
     });
     document.getElementById('entry-count').textContent = data.length;
 }
-
 // ====================== CRUD ======================
 function addNewEntry() {
     const name = prompt("Robot Name:", "Unit-" + Math.floor(Math.random()*1000));
@@ -367,16 +342,14 @@ function addNewEntry() {
     const lng = parseFloat(prompt("Longitude:", "-90.1994"));
     const desc = prompt("Description:", "Active");
     if (isNaN(lat) || isNaN(lng)) return showToast("Invalid coordinates", true);
-
     const newRobot = { name, lat, lng, desc };
     markersData.push(newRobot);
     newRobot.marker = addMarkerToMap(lat, lng, name, desc);
-    
+   
     renderCurrentTable();
     saveToLocalStorage();
     showToast("Robot added");
 }
-
 function editEntry(index) {
     const item = markersData[index];
     if (!item) return;
@@ -385,23 +358,22 @@ function editEntry(index) {
     const lat = parseFloat(prompt("Latitude:", item.lat));
     const lng = parseFloat(prompt("Longitude:", item.lng));
     const desc = prompt("Description:", item.desc || "");
-    
+   
     if (isNaN(lat) || isNaN(lng)) return showToast("Invalid coordinates", true);
-    
+   
     item.name = name;
     item.lat = lat;
     item.lng = lng;
     item.desc = desc;
-    
+   
     // Refresh all markers
     markersData.forEach(m => { if (m.marker) map.removeLayer(m.marker); });
     markersData.forEach(m => { m.marker = addMarkerToMap(m.lat, m.lng, m.name, m.desc); });
-    
+   
     renderCurrentTable();
     saveToLocalStorage();
     showToast("Robot updated");
 }
-
 function deleteEntry(index) {
     if (confirm("Delete this robot?")) {
         if (markersData[index].marker) map.removeLayer(markersData[index].marker);
@@ -411,39 +383,31 @@ function deleteEntry(index) {
         showToast("Robot deleted");
     }
 }
-
 function editFeature(index) {
     const isPath = currentTab === 1;
     const isObstacle = currentTab === 2;
     const data = isPath ? pathsData : isObstacle ? obstaclesData : polygonsData;
     const item = data[index];
     if (!item) return;
-
     const name = prompt("Name:", item.name);
     if (name === null) return;
     const desc = prompt("Description:", item.desc || "");
-
     item.name = name;
     item.desc = desc;
-
     // Refresh layer
     if (item.polyline) map.removeLayer(item.polyline);
     if (item.polygon) map.removeLayer(item.polygon);
-
     if (currentTab === 3) addPolygonToMap(item);
     else addLineToMap(item);
-
     renderCurrentTable();
     saveToLocalStorage();
     showToast("Feature updated");
 }
-
 function deleteFeature(index) {
     const isPath = currentTab === 1;
     const isObstacle = currentTab === 2;
     const data = isPath ? pathsData : isObstacle ? obstaclesData : polygonsData;
     const typeName = currentTab === 3 ? "polygon" : isPath ? "path" : "obstacle";
-
     if (confirm(`Delete this ${typeName}?`)) {
         const item = data[index];
         if (item.polyline) map.removeLayer(item.polyline);
@@ -454,21 +418,18 @@ function deleteFeature(index) {
         showToast(`${typeName} deleted`);
     }
 }
-
 function clearAllData() {
     if (confirm("Clear ALL data?")) {
         markersData.forEach(m => { if (m.marker) map.removeLayer(m.marker); });
         pathsData.forEach(p => { if (p.polyline) map.removeLayer(p.polyline); });
         obstaclesData.forEach(o => { if (o.polyline) map.removeLayer(o.polyline); });
         polygonsData.forEach(p => { if (p.polygon) map.removeLayer(p.polygon); });
-
         markersData = []; pathsData = []; obstaclesData = []; polygonsData = [];
         renderCurrentTable();
         saveToLocalStorage();
         showToast("All data cleared");
     }
 }
-
 // ====================== UTILITIES ======================
 function showToast(msg, isError = false) {
     const toast = document.getElementById('toast');
@@ -478,7 +439,6 @@ function showToast(msg, isError = false) {
     toast.style.display = 'block';
     setTimeout(() => toast.style.display = 'none', 2800);
 }
-
 function toggleAddMode() {
     addModeEnabled = !addModeEnabled;
     const btn = document.getElementById('add-mode-btn');
@@ -492,20 +452,16 @@ function toggleAddMode() {
         map.getContainer().style.cursor = '';
     }
 }
-
 function toggleSidebar() {
     const sb = document.getElementById('sidebar');
     sb.style.display = sb.style.display === 'none' ? 'block' : 'none';
 }
-
 function fitWorld() {
     map.flyTo([38.6270, -90.1994], 11);
 }
-
 function loadDemoData() {
     // Clear first
     clearAllData();
-
     // Robots
     const robots = [
         {name: "R-Alpha", lat: 38.6270, lng: -90.1994, desc: "Downtown Patrol"},
@@ -515,22 +471,18 @@ function loadDemoData() {
         markersData.push(r);
         r.marker = addMarkerToMap(r.lat, r.lng, r.name, r.desc);
     });
-
     // Path
     const demoPath = {id: Date.now(), name: "Main Patrol Route", points: [{lat:38.6270,lng:-90.1994},{lat:38.6350,lng:-90.2100},{lat:38.6400,lng:-90.1950}], desc: "Primary loop", type:'path'};
     pathsData.push(demoPath);
     addLineToMap(demoPath);
-
     // Polygon
     const demoPoly = {id: Date.now()+1, name: "Restricted Zone", points: [{lat:38.615,lng:-90.185},{lat:38.618,lng:-90.192},{lat:38.622,lng:-90.188}], desc: "No-fly construction area", type:'polygon'};
     polygonsData.push(demoPoly);
     addPolygonToMap(demoPoly);
-
     renderCurrentTable();
     saveToLocalStorage();
     showToast("Demo data loaded");
 }
-
 // ====================== MAP CLICK HANDLER ======================
 map.on('click', function(e) {
     if (addModeEnabled) {
@@ -542,12 +494,11 @@ map.on('click', function(e) {
         newRobot.marker = addMarkerToMap(e.latlng.lat, e.latlng.lng, name, desc);
         renderCurrentTable();
         saveToLocalStorage();
-    } 
+    }
     else if (currentDrawingType) {
         currentDrawingPoints.push({lat: e.latlng.lat, lng: e.latlng.lng});
-        
+       
         if (currentDrawingLayer) map.removeLayer(currentDrawingLayer);
-
         if (currentDrawingType === 'polygon' && currentDrawingPoints.length >= 3) {
             currentDrawingLayer = L.polygon(currentDrawingPoints.map(p => [p.lat, p.lng]), {
                 color: '#00b8ff', fillColor: '#00b8ff', fillOpacity: 0.25
@@ -560,7 +511,6 @@ map.on('click', function(e) {
         }
     }
 });
-
 // ====================== INIT ======================
 loadFromLocalStorage();
 if (markersData.length === 0 && pathsData.length === 0 && obstaclesData.length === 0 && polygonsData.length === 0) {
@@ -568,4 +518,4 @@ if (markersData.length === 0 && pathsData.length === 0 && obstaclesData.length =
 }
 </script>
 </body>
-</html>
+</html> 
