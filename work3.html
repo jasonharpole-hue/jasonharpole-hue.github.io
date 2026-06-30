@@ -6,7 +6,6 @@
     <title>Robot Management System</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://unpkg.com/@mapbox/shp-write@latest/shpwrite.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -88,18 +87,17 @@
             padding: 10px 12px;
             text-align: left;
             border-bottom: 1px solid #333;
-            cursor: pointer;
         }
         th { background: #1a1a1a; position: sticky; top: 0; z-index: 10; }
         tr:hover { background: #1e3a2f; }
         .delete-btn { color: #ff6666; cursor: pointer; font-size: 18px; }
         .edit-btn { color: #00b8ff; cursor: pointer; margin-right: 8px; }
-        .sidebar {
-            position: absolute; top: 20px; right: 20px; width: 320px;
-            background: rgba(15, 23, 42, 0.97); border-radius: 12px;
-            padding: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.6);
-            z-index: 1000; max-height: 75vh; overflow-y: auto;
-            border: 1px solid #334155;
+        .color-picker {
+            width: 60px;
+            height: 30px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
         }
         .toast {
             position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
@@ -126,10 +124,6 @@
         <button onclick="startDrawing('polygon')">⬡ Add Polygon</button>
         <button onclick="addNewEntry()">+ Manual Robot</button>
         <button onclick="toggleSidebar()">🗺️ Layers</button>
-        <button onclick="openPatrolSystem()">⚙️ Advanced Patrol</button>
-        <button onclick="openQualitycontrolSystem()">⚙️ Quality Control</button>
-        <button onclick="exportCSV()">📤 CSV</button>
-        <button onclick="exportShapefile()">📦 Shapefile (.zip)</button>
         <button onclick="fitWorld()">🌍 Reset View</button>
     </div>
 </header>
@@ -154,19 +148,14 @@
         </table>
     </div>
 </div>
-<div id="sidebar" class="sidebar" style="display: none;">
-    <h3 style="margin-bottom: 15px; color: #00ff9d;">Map Layers</h3>
-    <div class="layer-item active" id="layer-osm" onclick="toggleBaseLayer(0)">🌍 OpenStreetMap</div>
-    <div class="layer-item" id="layer-sat" onclick="toggleBaseLayer(1)">🛰️ Satellite</div>
-    <h4 style="margin:20px 0 10px;">Demo Data</h4>
-    <div onclick="loadDemoData()" style="padding:12px; background:#1e2937; border-radius:8px; cursor:pointer; text-align:center;">Load St. Louis Demo</div>
-</div>
+
 <div id="drawing-instructions" class="drawing-instructions">
     Click on map to add points • <span id="draw-type"></span><br>
     <button onclick="finishDrawing()" style="margin-top:8px; background:#00ff9d; color:#000;">Finish</button>
     <button onclick="cancelDrawing()" style="margin-top:8px; background:#ff6666;">Cancel</button>
 </div>
 <div id="toast" class="toast"></div>
+
 <script>
 // ====================== MAP SETUP ======================
 let map = L.map('map', { zoomControl: true }).setView([38.6270, -90.1994], 11);
@@ -174,13 +163,28 @@ const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { 
 const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 });
 osm.addTo(map);
 let currentLayer = osm;
+
 let markersData = [], pathsData = [], obstaclesData = [], polygonsData = [];
 let currentTab = 0;
 let addModeEnabled = false;
 let currentDrawingType = null;
 let currentDrawingPoints = [];
 let currentDrawingLayer = null;
+
 const robotIcon = L.divIcon({ className: 'robot-marker', html: '🤖', iconSize: [32, 32], iconAnchor: [16, 16] });
+
+// Default colors
+const defaultColors = {
+    path: '#00ff9d',
+    obstacle: '#ff4444',
+    polygon: '#00b8ff'
+};
+
+function ensureColor(feature, type) {
+    if (!feature.color) feature.color = defaultColors[type] || '#00ff9d';
+    return feature.color;
+}
+
 // ====================== PERSISTENCE ======================
 function saveToLocalStorage() {
     localStorage.setItem('robot_fleet', JSON.stringify(markersData));
@@ -188,6 +192,7 @@ function saveToLocalStorage() {
     localStorage.setItem('obstacles_data', JSON.stringify(obstaclesData));
     localStorage.setItem('polygons_data', JSON.stringify(polygonsData));
 }
+
 function loadFromLocalStorage() {
     try {
         if (localStorage.getItem('robot_fleet')) {
@@ -196,30 +201,30 @@ function loadFromLocalStorage() {
         }
         if (localStorage.getItem('paths_data')) {
             pathsData = JSON.parse(localStorage.getItem('paths_data'));
-            pathsData.forEach(p => addLineToMap(p));
+            pathsData.forEach(p => { ensureColor(p, 'path'); addLineToMap(p); });
         }
         if (localStorage.getItem('obstacles_data')) {
             obstaclesData = JSON.parse(localStorage.getItem('obstacles_data'));
-            obstaclesData.forEach(o => addLineToMap(o));
+            obstaclesData.forEach(o => { ensureColor(o, 'obstacle'); addLineToMap(o); });
         }
         if (localStorage.getItem('polygons_data')) {
             polygonsData = JSON.parse(localStorage.getItem('polygons_data'));
-            polygonsData.forEach(p => addPolygonToMap(p));
+            polygonsData.forEach(p => { ensureColor(p, 'polygon'); addPolygonToMap(p); });
         }
         renderCurrentTable();
     } catch(e) { console.error(e); }
 }
+
 // ====================== DRAWING ======================
 function startDrawing(type) {
     cancelDrawing();
     currentDrawingType = type;
     currentDrawingPoints = [];
     document.getElementById('drawing-instructions').style.display = 'block';
-    document.getElementById('draw-type').textContent =
-        type === 'path' ? 'PATH (Green)' :
-        type === 'obstacle' ? 'OBSTACLE (Red)' : 'POLYGON (Blue)';
+    document.getElementById('draw-type').textContent = type.toUpperCase() + " (Custom Color)";
     map.getContainer().style.cursor = 'crosshair';
 }
+
 function cancelDrawing() {
     if (currentDrawingLayer) map.removeLayer(currentDrawingLayer);
     currentDrawingType = null;
@@ -228,25 +233,33 @@ function cancelDrawing() {
     document.getElementById('drawing-instructions').style.display = 'none';
     map.getContainer().style.cursor = '';
 }
+
 function finishDrawing() {
     const minPoints = currentDrawingType === 'polygon' ? 3 : 2;
     if (currentDrawingPoints.length < minPoints) {
         showToast(`Need at least ${minPoints} points for ${currentDrawingType}`, true);
         return;
     }
-    const defaultName = currentDrawingType === 'polygon' ? "Zone-A1" :
-                       currentDrawingType === 'path' ? "Route-A1" : "Obstacle-Zone1";
+
+    const defaultName = currentDrawingType === 'polygon' ? "Zone-A1" : currentDrawingType === 'path' ? "Route-A1" : "Obstacle-Zone1";
     const name = prompt("Name for this " + currentDrawingType + ":", defaultName);
     if (!name) return cancelDrawing();
+
     const desc = prompt("Description:", "");
-   
+
+    const defaultColor = defaultColors[currentDrawingType];
+    let color = prompt(`Choose color (hex code, e.g. ${defaultColor}):`, defaultColor);
+    if (!color || !/^#[0-9A-Fa-f]{6}$/.test(color)) color = defaultColor;
+
     const newFeature = {
         id: Date.now(),
         name: name,
         points: [...currentDrawingPoints],
         desc: desc || '',
-        type: currentDrawingType
+        type: currentDrawingType,
+        color: color
     };
+
     if (currentDrawingType === 'path') {
         pathsData.push(newFeature);
         addLineToMap(newFeature);
@@ -257,45 +270,50 @@ function finishDrawing() {
         polygonsData.push(newFeature);
         addPolygonToMap(newFeature);
     }
+
     renderCurrentTable();
     saveToLocalStorage();
-    showToast(currentDrawingType.charAt(0).toUpperCase() + currentDrawingType.slice(1) + " created successfully");
+    showToast(currentDrawingType.charAt(0).toUpperCase() + currentDrawingType.slice(1) + " created");
     cancelDrawing();
 }
+
 function addLineToMap(line) {
-    const color = line.type === 'path' ? '#00ff9d' : '#ff4444';
+    const color = ensureColor(line, line.type);
     const polyline = L.polyline(line.points.map(p => [p.lat, p.lng]), {
         color: color,
         weight: line.type === 'path' ? 5 : 6,
         opacity: 0.9
     }).addTo(map);
-   
-    polyline.bindPopup(`<b>${line.name}</b><br>${line.desc}<br><small>${line.type.toUpperCase()} • ${line.points.length} points</small>`);
+    polyline.bindPopup(`<b>${line.name}</b><br>${line.desc}<br><small>Color: ${color}</small>`);
     line.polyline = polyline;
 }
+
 function addPolygonToMap(polygon) {
+    const color = ensureColor(polygon, 'polygon');
     const poly = L.polygon(polygon.points.map(p => [p.lat, p.lng]), {
-        color: '#00b8ff',
-        fillColor: '#00b8ff',
+        color: color,
+        fillColor: color,
         fillOpacity: 0.25,
         weight: 4
     }).addTo(map);
-   
-    poly.bindPopup(`<b>${polygon.name}</b><br>${polygon.desc}<br><small>POLYGON • ${polygon.points.length} points</small>`);
+    poly.bindPopup(`<b>${polygon.name}</b><br>${polygon.desc}<br><small>Color: ${color}</small>`);
     polygon.polygon = poly;
 }
+
 // ====================== MARKERS ======================
 function addMarkerToMap(lat, lng, name, desc) {
     const marker = L.marker([lat, lng], { icon: robotIcon }).addTo(map);
     marker.bindPopup(`<b>${name}</b><br>${desc}<br><small>Lat: ${lat.toFixed(4)} | Lng: ${lng.toFixed(4)}</small>`);
     return marker;
 }
+
 // ====================== TABLE ======================
 function switchTab(tab) {
     currentTab = tab;
     document.querySelectorAll('.tab-btn').forEach((b, i) => b.classList.toggle('active', i === tab));
     renderCurrentTable();
 }
+
 function renderCurrentTable() {
     const tbody = document.getElementById('table-body');
     const header = document.getElementById('table-header');
@@ -303,9 +321,11 @@ function renderCurrentTable() {
     let data = currentTab === 0 ? markersData :
                currentTab === 1 ? pathsData :
                currentTab === 2 ? obstaclesData : polygonsData;
+
     header.innerHTML = currentTab === 0 ?
         `<tr><th>ID</th><th>Name</th><th>Lat</th><th>Lng</th><th>Description</th><th>Actions</th></tr>` :
-        `<tr><th>ID</th><th>Name</th><th>Points</th><th>Description</th><th>Actions</th></tr>`;
+        `<tr><th>ID</th><th>Name</th><th>Points</th><th>Color</th><th>Description</th><th>Actions</th></tr>`;
+
     data.forEach((item, i) => {
         const row = document.createElement('tr');
         if (currentTab === 0) {
@@ -320,10 +340,12 @@ function renderCurrentTable() {
                     <span class="delete-btn" onclick="deleteEntry(${i});event.stopImmediatePropagation()">×</span>
                 </td>`;
         } else {
+            const color = ensureColor(item, item.type || (currentTab === 3 ? 'polygon' : currentTab === 1 ? 'path' : 'obstacle'));
             row.innerHTML = `
                 <td>${i+1}</td>
                 <td>${item.name}</td>
                 <td>${item.points.length}</td>
+                <td><input type="color" value="${color}" class="color-picker" onchange="changeFeatureColor(${i}, this.value)"></td>
                 <td>${(item.desc || '-').substring(0, 45)}${(item.desc || '').length > 45 ? '...' : ''}</td>
                 <td>
                     <span class="edit-btn" onclick="editFeature(${i});event.stopImmediatePropagation()">✏️</span>
@@ -334,6 +356,7 @@ function renderCurrentTable() {
     });
     document.getElementById('entry-count').textContent = data.length;
 }
+
 // ====================== CRUD ======================
 function addNewEntry() {
     const name = prompt("Robot Name:", "Unit-" + Math.floor(Math.random()*1000));
@@ -345,11 +368,11 @@ function addNewEntry() {
     const newRobot = { name, lat, lng, desc };
     markersData.push(newRobot);
     newRobot.marker = addMarkerToMap(lat, lng, name, desc);
-   
     renderCurrentTable();
     saveToLocalStorage();
     showToast("Robot added");
 }
+
 function editEntry(index) {
     const item = markersData[index];
     if (!item) return;
@@ -358,22 +381,18 @@ function editEntry(index) {
     const lat = parseFloat(prompt("Latitude:", item.lat));
     const lng = parseFloat(prompt("Longitude:", item.lng));
     const desc = prompt("Description:", item.desc || "");
-   
     if (isNaN(lat) || isNaN(lng)) return showToast("Invalid coordinates", true);
-   
     item.name = name;
     item.lat = lat;
     item.lng = lng;
     item.desc = desc;
-   
-    // Refresh all markers
     markersData.forEach(m => { if (m.marker) map.removeLayer(m.marker); });
     markersData.forEach(m => { m.marker = addMarkerToMap(m.lat, m.lng, m.name, m.desc); });
-   
     renderCurrentTable();
     saveToLocalStorage();
     showToast("Robot updated");
 }
+
 function deleteEntry(index) {
     if (confirm("Delete this robot?")) {
         if (markersData[index].marker) map.removeLayer(markersData[index].marker);
@@ -383,26 +402,54 @@ function deleteEntry(index) {
         showToast("Robot deleted");
     }
 }
+
 function editFeature(index) {
     const isPath = currentTab === 1;
     const isObstacle = currentTab === 2;
     const data = isPath ? pathsData : isObstacle ? obstaclesData : polygonsData;
     const item = data[index];
     if (!item) return;
+
     const name = prompt("Name:", item.name);
     if (name === null) return;
     const desc = prompt("Description:", item.desc || "");
+
+    const currentColor = item.color || defaultColors[item.type] || '#00ff9d';
+    let newColor = prompt(`New color (hex):`, currentColor);
+    if (!newColor || !/^#[0-9A-Fa-f]{6}$/.test(newColor)) newColor = currentColor;
+
     item.name = name;
     item.desc = desc;
-    // Refresh layer
+    item.color = newColor;
+
     if (item.polyline) map.removeLayer(item.polyline);
     if (item.polygon) map.removeLayer(item.polygon);
     if (currentTab === 3) addPolygonToMap(item);
     else addLineToMap(item);
+
     renderCurrentTable();
     saveToLocalStorage();
     showToast("Feature updated");
 }
+
+function changeFeatureColor(index, newColor) {
+    const isPath = currentTab === 1;
+    const isObstacle = currentTab === 2;
+    const data = isPath ? pathsData : isObstacle ? obstaclesData : polygonsData;
+    const item = data[index];
+    if (!item) return;
+
+    item.color = newColor;
+
+    if (item.polyline) map.removeLayer(item.polyline);
+    if (item.polygon) map.removeLayer(item.polygon);
+    if (currentTab === 3) addPolygonToMap(item);
+    else addLineToMap(item);
+
+    saveToLocalStorage();
+    showToast("Color updated");
+}
+
 function deleteFeature(index) {
     const isPath = currentTab === 1;
     const isObstacle = currentTab === 2;
@@ -418,6 +465,7 @@ function deleteFeature(index) {
         showToast(`${typeName} deleted`);
     }
 }
+
 function clearAllData() {
     if (confirm("Clear ALL data?")) {
         markersData.forEach(m => { if (m.marker) map.removeLayer(m.marker); });
@@ -430,6 +478,7 @@ function clearAllData() {
         showToast("All data cleared");
     }
 }
+
 // ====================== UTILITIES ======================
 function showToast(msg, isError = false) {
     const toast = document.getElementById('toast');
@@ -439,6 +488,7 @@ function showToast(msg, isError = false) {
     toast.style.display = 'block';
     setTimeout(() => toast.style.display = 'none', 2800);
 }
+
 function toggleAddMode() {
     addModeEnabled = !addModeEnabled;
     const btn = document.getElementById('add-mode-btn');
@@ -452,17 +502,19 @@ function toggleAddMode() {
         map.getContainer().style.cursor = '';
     }
 }
+
 function toggleSidebar() {
-    const sb = document.getElementById('sidebar');
-    sb.style.display = sb.style.display === 'none' ? 'block' : 'none';
+    const sb = document.getElementById('sidebar') || document.createElement('div');
+    // Sidebar toggle logic can be expanded later
+    showToast("Layers panel coming soon");
 }
+
 function fitWorld() {
     map.flyTo([38.6270, -90.1994], 11);
 }
+
 function loadDemoData() {
-    // Clear first
     clearAllData();
-    // Robots
     const robots = [
         {name: "R-Alpha", lat: 38.6270, lng: -90.1994, desc: "Downtown Patrol"},
         {name: "R-Beta", lat: 38.6350, lng: -90.2100, desc: "Forest Park"}
@@ -471,19 +523,21 @@ function loadDemoData() {
         markersData.push(r);
         r.marker = addMarkerToMap(r.lat, r.lng, r.name, r.desc);
     });
-    // Path
-    const demoPath = {id: Date.now(), name: "Main Patrol Route", points: [{lat:38.6270,lng:-90.1994},{lat:38.6350,lng:-90.2100},{lat:38.6400,lng:-90.1950}], desc: "Primary loop", type:'path'};
+
+    const demoPath = {id: Date.now(), name: "Main Patrol Route", points: [{lat:38.6270,lng:-90.1994},{lat:38.6350,lng:-90.2100},{lat:38.6400,lng:-90.1950}], desc: "Primary loop", type:'path', color: '#00ff9d'};
     pathsData.push(demoPath);
     addLineToMap(demoPath);
-    // Polygon
-    const demoPoly = {id: Date.now()+1, name: "Restricted Zone", points: [{lat:38.615,lng:-90.185},{lat:38.618,lng:-90.192},{lat:38.622,lng:-90.188}], desc: "No-fly construction area", type:'polygon'};
+
+    const demoPoly = {id: Date.now()+1, name: "Restricted Zone", points: [{lat:38.615,lng:-90.185},{lat:38.618,lng:-90.192},{lat:38.622,lng:-90.188}], desc: "No-fly construction area", type:'polygon', color: '#00b8ff'};
     polygonsData.push(demoPoly);
     addPolygonToMap(demoPoly);
+
     renderCurrentTable();
     saveToLocalStorage();
     showToast("Demo data loaded");
 }
-// ====================== MAP CLICK HANDLER ======================
+
+// ====================== MAP CLICK ======================
 map.on('click', function(e) {
     if (addModeEnabled) {
         const name = prompt("Robot Name:", "Unit-" + Math.floor(Math.random()*1000));
@@ -497,20 +551,20 @@ map.on('click', function(e) {
     }
     else if (currentDrawingType) {
         currentDrawingPoints.push({lat: e.latlng.lat, lng: e.latlng.lng});
-       
         if (currentDrawingLayer) map.removeLayer(currentDrawingLayer);
+        const tempColor = defaultColors[currentDrawingType];
         if (currentDrawingType === 'polygon' && currentDrawingPoints.length >= 3) {
             currentDrawingLayer = L.polygon(currentDrawingPoints.map(p => [p.lat, p.lng]), {
-                color: '#00b8ff', fillColor: '#00b8ff', fillOpacity: 0.25
+                color: tempColor, fillColor: tempColor, fillOpacity: 0.25
             }).addTo(map);
         } else {
             currentDrawingLayer = L.polyline(currentDrawingPoints.map(p => [p.lat, p.lng]), {
-                color: currentDrawingType === 'path' ? '#00ff9d' : '#ff4444',
-                weight: 5
+                color: tempColor, weight: 5
             }).addTo(map);
         }
     }
 });
+
 // ====================== INIT ======================
 loadFromLocalStorage();
 if (markersData.length === 0 && pathsData.length === 0 && obstaclesData.length === 0 && polygonsData.length === 0) {
@@ -518,4 +572,4 @@ if (markersData.length === 0 && pathsData.length === 0 && obstaclesData.length =
 }
 </script>
 </body>
-</html> 
+</html>
