@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Digital person · Captain Kirk</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--bg:#eef3fb;--fg:#0e1a33;--pn:#fff;--ln:#c3d0e8;--ac:#c58a00;--mu:#51638a}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#050a1a;--fg:#e8f1ff;--pn:#0b1630;--ln:#1f3a6a;--ac:#f2b61f;--mu:#8aa4cc}}
+:root[data-theme="dark"]{--bg:#050a1a;--fg:#e8f1ff;--pn:#0b1630;--ln:#1f3a6a;--ac:#f2b61f;--mu:#8aa4cc}
+*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.4 "Trebuchet MS","Segoe UI",system-ui,sans-serif}
+main{max-width:980px;margin:0 auto;padding:16px;display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start}
+#stage{position:relative;flex:1 1 340px;max-width:460px;margin:0 auto;aspect-ratio:4/5;border-radius:14px;overflow:hidden;border:2px solid var(--ln);background:#020512}
+#stage svg{width:100%;height:100%;display:block}
+#stage:after{content:"";position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(0,0,0,.09) 0 1px,transparent 1px 3px)}
+#nm{position:absolute;left:12px;bottom:10px;z-index:2;color:#ffe39a;font-size:13px;letter-spacing:.04em}
+aside{flex:1 1 300px;background:var(--pn);border:1px solid var(--ln);border-radius:10px;padding:14px;display:grid;gap:12px}
+h1{font-size:20px;margin:0}p{margin:0;color:var(--mu);font-size:13px}
+.g{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:6px}
+button{font:inherit;color:var(--fg);background:transparent;border:1px solid var(--ln);border-radius:6px;padding:7px 4px;cursor:pointer}
+button:hover{border-color:var(--ac)}button.on{background:var(--ac);color:#140e00;border-color:var(--ac)}
+button:focus-visible,input:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+label{display:flex;gap:8px;align-items:center;font-size:13px}
+input[type=text]{width:100%;font:inherit;padding:7px;border-radius:6px;border:1px solid var(--ln);background:transparent;color:var(--fg)}
+#pad{position:relative;width:100%;max-width:240px;aspect-ratio:1;border-radius:8px;border:1px solid var(--ln);touch-action:none;cursor:crosshair;background:radial-gradient(circle,rgba(53,228,255,.25),transparent 70%),linear-gradient(90deg,rgba(60,110,255,.3),rgba(255,200,60,.3))}
+#dot{position:absolute;width:14px;height:14px;margin:-7px;border-radius:50%;background:var(--ac);border:2px solid #fff;left:50%;top:50%}
+#pad span{position:absolute;font-size:11px;color:var(--mu)}
+#stars circle{animation:tw 3.5s ease-in-out infinite}@keyframes tw{50%{opacity:.3}}@media(prefers-reduced-motion:reduce){#stars circle{animation:none}}
+#msg{font-size:12px;color:var(--mu);min-height:16px}
+</style></head><body><main>
+<div id="stage"><div id="nm">neutral</div>
+<svg viewBox="0 0 400 500" id="sv"><defs>
+<linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#01030c"/><stop offset="1" stop-color="#0b1d3f"/></linearGradient><radialGradient id="neb1"><stop offset="0" stop-color="#7a4bff" stop-opacity=".5"/><stop offset="1" stop-color="#7a4bff" stop-opacity="0"/></radialGradient><radialGradient id="neb2"><stop offset="0" stop-color="#00b4ff" stop-opacity=".4"/><stop offset="1" stop-color="#00b4ff" stop-opacity="0"/></radialGradient><radialGradient id="pl" cx=".35" cy=".35"><stop offset="0" stop-color="#ffc08a"/><stop offset=".7" stop-color="#b8503c"/><stop offset="1" stop-color="#3a1428"/></radialGradient>
+<linearGradient id="sk" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f3d7b8"/><stop offset=".6" stop-color="#dcae86"/><stop offset="1" stop-color="#b4845f"/></linearGradient>
+<linearGradient id="jk" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d9b236"/><stop offset="1" stop-color="#8a6a10"/></linearGradient>
+<radialGradient id="ir"><stop offset="0" stop-color="#f3e6c4"/><stop offset=".7" stop-color="#9a7a3e"/><stop offset="1" stop-color="#4a3414"/></radialGradient>
+<clipPath id="fc"><polygon id="fcp"/></clipPath><clipPath id="mc"><polygon id="mcp"/></clipPath>
+<clipPath id="ecL"><polygon id="ecpL"/></clipPath><clipPath id="ecR"><polygon id="ecpR"/></clipPath></defs>
+<rect width="400" height="500" fill="url(#bg)"/><g id="grid"></g>
+<ellipse cx="90" cy="120" rx="170" ry="110" fill="url(#neb1)"/><ellipse cx="320" cy="300" rx="190" ry="120" fill="url(#neb2)"/><g id="stars"></g>
+<g transform="translate(330,92)"><circle r="40" fill="url(#pl)"/><ellipse rx="66" ry="12" fill="none" stroke="#9ad7ff" stroke-width="3" opacity=".55" transform="rotate(-18)"/></g>
+<g transform="translate(62,175) rotate(-10) scale(.9)"><polygon points="-70,18 -10,14 -10,20" fill="#35e4ff" opacity=".35"/><ellipse rx="30" ry="8" fill="#b7c4d8"/><ellipse cy="-5" rx="9" ry="3" fill="#dfe8f5"/><polygon points="-6,6 8,6 22,26 10,28" fill="#97a6bd"/><rect x="-4" y="24" width="38" height="7" rx="3" fill="#7f8fa8"/><rect x="2" y="2" width="38" height="3" rx="1.5" fill="#8fa0ba"/><rect x="2" y="36" width="38" height="3" rx="1.5" fill="#8fa0ba"/><circle cx="40" cy="3.5" r="2.5" fill="#ff4d4d"/><circle cx="40" cy="37.5" r="2.5" fill="#ff4d4d"/></g>
+<g id="body"><polygon points="172,390 228,390 236,470 164,470" fill="#c79a76"/>
+<polygon points="20,500 50,440 150,420 200,470 250,420 350,440 380,500" fill="url(#jk)"/>
+<polygon points="20,500 50,440 90,500" fill="#fff" opacity=".12"/><polygon points="150,420 200,470 120,500 50,440" fill="#fff" opacity=".08"/><polygon points="350,440 380,500 300,500 250,420" fill="#000" opacity=".25"/>
+<polygon points="158,404 242,404 252,422 200,474 148,422" fill="#0a0a10"/>
+<polygon points="172,390 228,390 200,430" fill="#000" opacity=".25"/>
+<g transform="translate(305,468)"><polygon points="-13,15 0,-15 13,15 0,8" fill="#e8edf5" stroke="#6a4f00" stroke-width="1.5"/></g></g>
+<g id="head">
+<polygon points="114,222 98,196 92,240 114,274" fill="#d1a27c"/><polygon points="286,222 302,196 308,240 286,274" fill="#b58760"/>
+<polygon points="106,188 98,140 124,86 180,52 250,56 290,100 302,150 296,188 282,150 200,118 118,150" fill="#4a3220"/>
+<polygon id="fp" fill="url(#sk)"/>
+<g clip-path="url(#fc)"><g id="fx"></g>
+<polygon points="150,118 200,106 250,118 262,170 200,160 138,170" fill="#fff" opacity=".16"/>
+<polygon points="250,230 290,232 280,330 250,330" fill="#000" opacity=".15"/><polygon points="110,232 150,230 156,310 120,318" fill="#fff" opacity=".08"/>
+<polygon points="192,200 208,200 214,290 186,290" fill="#fff" opacity=".12"/>
+<polygon points="120,318 156,310 200,360 152,388" fill="#000" opacity=".1"/><polygon points="280,318 244,310 200,360 248,388" fill="#000" opacity=".17"/>
+<polygon points="168,372 232,372 200,430" fill="#fff" opacity=".1"/></g>
+<polyline points="276,158 282,232 268,322 236,396" fill="none" stroke="#5ee7ff" stroke-width="3" opacity=".6"/>
+<polygon id="bhL" points="128,276 156,262 170,290 142,304" fill="#e0735a" opacity="0"/><polygon id="bhR" points="272,276 244,262 230,290 258,304" fill="#e0735a" opacity="0"/>
+<polyline id="nlL" fill="none" stroke="#8a5a40" stroke-width="2" stroke-linecap="round"/><polyline id="nlR" fill="none" stroke="#8a5a40" stroke-width="2" stroke-linecap="round"/>
+<g id="fh" stroke="#9a6e50" stroke-width="2" fill="none" stroke-linecap="round"><polyline points="152,136 176,133 224,133 248,136"/><polyline points="148,147 176,144 224,144 252,147"/><polyline points="152,158 176,155 224,155 248,158"/><polyline id="fw" points="193,168 192,188 207,168 208,188" stroke-width="2.4"/></g>
+<g id="nose"><polygon points="194,226 206,226 208,296 192,296" fill="#fff" opacity=".2"/><polygon points="207,224 217,296 209,304" fill="#000" opacity=".16"/><polygon points="193,226 188,296 192,296" fill="#000" opacity=".1"/>
+<polygon points="181,296 174,303 180,311 193,308 191,298" fill="#c49a78"/><polygon points="219,296 226,303 220,311 207,308 209,298" fill="#aa8264"/>
+<polygon points="190,301 200,314 210,301 200,307" fill="#000" opacity=".2"/><polygon points="186,305 182,309 190,309" fill="#4a2214" opacity=".7"/><polygon points="214,305 218,309 210,309" fill="#4a2214" opacity=".7"/></g>
+<ellipse cx="156" cy="216" rx="35" ry="22" fill="#4a2a18" opacity=".3"/><ellipse cx="244" cy="216" rx="35" ry="22" fill="#4a2a18" opacity=".3"/><polyline points="128,232 156,240 184,232" fill="none" stroke="#7a4a35" stroke-width="2" opacity=".35" stroke-linecap="round"/><polyline points="272,232 244,240 216,232" fill="none" stroke="#7a4a35" stroke-width="2" opacity=".35" stroke-linecap="round"/><g id="eyes"></g><g id="brows"></g>
+<polygon id="mi" fill="#3a1214"/><g clip-path="url(#mc)"><rect id="th" fill="#fff"/><ellipse id="tg" fill="#c4605a"/><polygon id="fgL" fill="#fff6ec"/><polygon id="fgR" fill="#fff6ec"/></g>
+<polygon id="lu" fill="#b0705a"/><polygon id="ll" fill="#c07a64"/><polyline id="sm" fill="none" stroke="#6a3320" stroke-width="1.8" stroke-linecap="round"/>
+<polygon points="118,152 138,108 200,98 262,108 282,152 268,136 234,126 200,148 166,126 132,136" fill="#4a3220"/>
+<polygon points="130,124 150,70 210,36 270,52 288,98 250,102 200,96 160,112" fill="#5d4129"/>
+<polygon points="150,70 210,36 242,48 192,72" fill="#a07a50" opacity=".8"/><polygon points="210,36 270,52 250,72" fill="#8a5a34" opacity=".5"/>
+<g fill="none" stroke="#b08a5a" stroke-linecap="round" opacity=".4"><polyline points="166,108 190,66 238,50" stroke-width="2"/><polyline points="196,100 218,62 262,60" stroke-width="1.6"/><polyline points="140,126 152,88 190,62" stroke-width="1.6"/><polyline points="236,104 262,78 276,92" stroke-width="1.4"/></g>
+<polygon points="119,156 134,138 140,180 126,188" fill="#6a4a30" opacity=".55"/><polygon points="281,156 266,138 260,180 274,188" fill="#6a4a30" opacity=".55"/>
+</g></svg></div>
+<aside><div><h1>Digital person · Captain Kirk</h1><p>A rugged starship captain on the bridge. Every emotion is a blend of face channels.</p></div>
+<div class="g" id="pre"></div>
+<label>Intensity <input type="range" id="int" min="0" max="1.5" step=".05" value="1"></label>
+<div><p>Mood pad: drag from unpleasant to pleasant, calm to aroused.</p><div id="pad"><span style="left:6px;top:46%">unpleasant</span><span style="right:6px;top:46%">pleasant</span><span style="left:46%;top:4px">aroused</span><span style="left:46%;bottom:4px">calm</span><div id="dot"></div></div></div>
+<label><input type="checkbox" id="idle" checked> Blinks, glances, breathing</label>
+<label><input type="checkbox" id="cur" checked> Look at the pointer</label>
+<label><input type="checkbox" id="spk"> Speaking</label>
+<div><input type="text" id="say" value="Captain's log, stardate 2026.279. The crew is restless... but so am I. Mr. Spock, set a course. Engage." aria-label="Text to speak"><div style="display:flex;gap:6px;margin-top:6px"><button id="talk" style="flex:1">Speak</button><button id="shh">Stop</button></div><p id="vmsg" style="margin-top:4px"></p></div>
+<label hidden><input type="checkbox" id="fg"></label>
+<button id="demo">Play all emotions</button>
+<div><input type="text" id="cmd" placeholder="sad*0.4 + happy   or   smile=.6 browInnerUp=.8" aria-label="Command"><div id="msg"></div>
+<p>Channels: browInnerUp browDown browOuterUp eyeWide eyeSquint blink smile frown (add L or R for one side, screen-left is L), jaw pucker stretch sneer press shift blush lookX lookY roll yaw pitch</p></div></aside></main>
+<script>
+const $=i=>document.getElementById(i),NS="http://www.w3.org/2000/svg";
+const P=a=>a.map(p=>p[0].toFixed(1)+","+p[1].toFixed(1)).join(" "),cl=(x,a=0,b=1)=>Math.min(b,Math.max(a,x)),mix=(a,b,u)=>a+(b-a)*u;
+const SD=["browInnerUp","browDown","browOuterUp","eyeWide","eyeSquint","blink","smile","frown"],MO=["jaw","pucker","stretch","sneer","press","shift","blush","lookX","lookY","roll","yaw","pitch"],SG=["lookX","lookY","shift","roll","yaw","pitch"];
+const CH=[];SD.forEach(k=>CH.push(k+"L",k+"R"));MO.forEach(k=>CH.push(k));
+const PRE={neutral:{},happy:{smile:.55,eyeSquint:.2,browOuterUp:.1,blush:.15},
+joy:{smile:1,eyeSquint:.6,jaw:.3,browOuterUp:.3,browInnerUp:.1,blush:.5,roll:-.15,pitch:-.1},
+sad:{browInnerUp:.9,frown:.7,blink:.22,lookY:-.45,pitch:.25,roll:.12,jaw:.03},
+angry:{browDown:1,eyeSquint:.3,eyeWide:.25,frown:.4,sneer:.35,press:.5,pitch:.15},
+rage:{browDown:1,eyeWide:.4,eyeSquint:.2,frown:.7,sneer:.8,jaw:.3,blush:.3},
+surprised:{browInnerUp:.85,browOuterUp:.9,eyeWide:1,jaw:.65,pucker:.25,pitch:-.2},
+fear:{browInnerUp:1,browOuterUp:.35,eyeWide:.9,jaw:.32,stretch:.9,frown:.25,pitch:.1,lookY:.1},
+disgust:{sneer:1,browDown:.55,eyeSquint:.55,frown:.55,jaw:.14,pitch:-.15,roll:.1,pucker:.15},
+contempt:{smileR:.7,browOuterUpL:.6,eyeSquintR:.35,roll:.08,sneer:.15,lookX:-.2},
+thinking:{browInnerUp:.25,browOuterUpR:.8,lookX:.65,lookY:.55,shift:-.6,pucker:.35,roll:-.1},
+smug:{smileL:.2,smileR:.55,eyeSquint:.3,blink:.3,browOuterUpR:.3,roll:.1,pitch:-.12,lookX:.2},
+worried:{browInnerUp:.75,frown:.35,eyeWide:.2,lookY:-.2,shift:.3,jaw:.04},
+sleepy:{blink:.65,browDown:.1,jaw:.06,roll:.15,pitch:.2},
+wink:{blinkL:1,eyeSquintL:.5,smile:.8,smileR:.9,browOuterUpR:.3,roll:-.1,blush:.25},
+charming:{smileR:.6,smileL:.35,browOuterUpL:.35,eyeSquint:.25,roll:-.08,pitch:-.05,blush:.1,lookX:.1},
+command:{browDown:.3,eyeSquint:.2,eyeWide:.1,press:.45,frown:.12,pitch:-.08,lookY:.05},
+khaaan:{browDown:1,eyeWide:.5,eyeSquint:.1,frown:.8,sneer:.4,jaw:.9,stretch:.3,pitch:-.18,roll:-.1},
+determined:{browDown:.5,eyeSquint:.2,press:.7,frown:.25,pitch:.1,lookY:.05},
+intrigued:{browOuterUpL:.7,browInnerUpL:.1,smileR:.2,eyeSquintR:.2,roll:.1,lookX:-.3,pucker:.1}};
+const ANC=[[0,0,"neutral"],[.55,.25,"happy"],[.95,.8,"joy"],[-.7,-.45,"sad"],[-.65,.6,"angry"],[-.4,.85,"fear"],[.1,.95,"surprised"],[-.85,.1,"disgust"],[0,-.95,"sleepy"],[.45,-.35,"smug"]];
+const T={},S={},V={};CH.forEach(k=>{T[k]=S[k]=V[k]=0});
+let recipe=[["neutral",1]],ov={},inten=1,demo=false,dIdx=0,dNext=0,bT=-1,bNext=2,pX=0,pY=0,pvx=0,pvy=0,lT=[0,0],lNext=1,spk=0,curT=null,now=0;
+function put(o,k,v,w){if(SD.includes(k))o[k+"L"]+=v*w,o[k+"R"]+=v*w;else o[k]+=v*w}
+function compute(){CH.forEach(k=>T[k]=0);
+recipe.forEach(([n,w])=>{for(const k in PRE[n])put(T,k,PRE[n][k],w*inten)});
+for(const k in ov)T[k]=ov[k];CH.forEach(k=>T[k]=SG.includes(k)?cl(T[k],-1,1):cl(T[k]))}
+function label(t){$("nm").textContent=t}
+function setPre(n,fromDemo){if(!fromDemo)demo=false,$("demo").classList.remove("on");
+recipe=[[n,1]];ov={};compute();label(n);if(Math.random()<.6&&bT<0)bT=0;
+document.querySelectorAll("#pre button").forEach(b=>b.classList.toggle("on",b.dataset.n===n))}
+const pre=$("pre");Object.keys(PRE).forEach(n=>{const b=document.createElement("button");b.textContent=n;b.dataset.n=n;b.onclick=()=>setPre(n);pre.appendChild(b)});
+$("int").oninput=e=>{inten=+e.target.value;compute()};
+const pad=$("pad");function padSet(e){const r=pad.getBoundingClientRect(),v=cl((e.clientX-r.left)/r.width*2-1,-1,1),a=cl(1-(e.clientY-r.top)/r.height*2,-1,1);
+$("dot").style.left=(v+1)*50+"%";$("dot").style.top=(1-a)*50+"%";
+let w=ANC.map(([x,y,n])=>[n,1/Math.pow((x-v)**2+(y-a)**2+.03,1.5)]),s=w.reduce((q,p)=>q+p[1],0);
+recipe=w.map(([n,q])=>[n,q/s]).filter(p=>p[1]>.03);ov={};compute();demo=false;$("demo").classList.remove("on");
+label("mood "+v.toFixed(2)+" / "+a.toFixed(2));document.querySelectorAll("#pre button").forEach(b=>b.classList.remove("on"))}
+let pd=false;pad.onpointerdown=e=>{pd=true;pad.setPointerCapture(e.pointerId);padSet(e)};pad.onpointermove=e=>{if(pd)padSet(e)};pad.onpointerup=()=>pd=false;
+$("demo").onclick=e=>{demo=!demo;e.target.classList.toggle("on",demo);dIdx=-1;dNext=0};
+$("cmd").onkeydown=e=>{if(e.key!=="Enter")return;const m=$("msg");m.textContent="";const r=[],o={};
+for(const t of e.target.value.replace(/\+/g," ").split(/\s+/).filter(Boolean)){let q;
+if(q=t.match(/^([a-z]+)\*([\d.]+)$/i)){if(!PRE[q[1]]){m.textContent="Unknown emotion: "+q[1];return}r.push([q[1],+q[2]])}
+else if(q=t.match(/^(\w+)=(-?[\d.]+)$/)){const k=q[1];if(SD.includes(k)){o[k+"L"]=o[k+"R"]=+q[2]}else if(CH.includes(k))o[k]=+q[2];else{m.textContent="Unknown channel: "+k;return}}
+else if(PRE[t])r.push([t,1]);else{m.textContent="Unknown: "+t;return}}
+demo=false;recipe=r;ov=o;compute();label(e.target.value);document.querySelectorAll("#pre button").forEach(b=>b.classList.remove("on"))};
+const st=$("stage");st.onpointermove=e=>{const r=st.getBoundingClientRect();curT=[cl((e.clientX-r.left-r.width/2)/(r.width/2)*.9,-1,1),cl(-(e.clientY-r.top-r.height*.45)/(r.height/2)*.7,-1,1)]};st.onpointerleave=()=>curT=null;
+let gh="";for(let i=-10;i<=10;i++)gh+=`<line x1="${200+i*16}" y1="330" x2="${200+i*95}" y2="500"/>`;for(let j=1;j<=6;j++){const y=330+170*(j/6)**2;gh+=`<line x1="0" y1="${y}" x2="400" y2="${y}"/>`}
+$("grid").innerHTML=`<g stroke="#2fd0ff" stroke-width="1" opacity=".28">${gh}</g>`;
+let sh="";for(let i=0;i<80;i++){sh+=`<circle cx="${(i*173.7%400).toFixed(1)}" cy="${(i*97.3%330).toFixed(1)}" r="${(.4+(i*37%10)/12).toFixed(2)}" fill="#fff" style="animation-delay:-${(i%7)*.5}s"/>`}$("stars").innerHTML=sh;
+function mk(t,a,p){const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);(p||$("sv")).appendChild(e);return e}
+const E={};[["L",156,1],["R",244,-1]].forEach(([k,cx,d])=>{const g=$("eyes");
+E[k]={cx,d,lid:mk("polygon",{fill:"#b08060",opacity:".6"},g),w:mk("polygon",{fill:"#f7f9ff"},g)};
+const ig=mk("g",{"clip-path":`url(#ec${k})`},g);E[k].ir=mk("circle",{r:10.5,fill:"url(#ir)"},ig);E[k].pu=mk("circle",{r:4.8,fill:"#0a0a1e"},ig);E[k].hl=mk("rect",{width:4,height:4,fill:"#fff"},ig);
+E[k].sh=mk("polygon",{fill:"#000",opacity:".12"},ig);
+E[k].cr=mk("polyline",{fill:"none",stroke:"#5a3a28","stroke-width":2,opacity:".4","stroke-linecap":"round"},g);
+E[k].up=mk("polyline",{fill:"none",stroke:"#2a1a0e","stroke-width":4,"stroke-linecap":"round","stroke-linejoin":"round"},g);
+E[k].lo=mk("polyline",{fill:"none",stroke:"#7a4a35","stroke-width":1.6,opacity:".6","stroke-linecap":"round"},g);
+E[k].br=mk("polygon",{fill:"#3e2918"},$("brows"))});
+const FX=[["150,118 200,106 200,150 160,150","#fff",.1],["200,106 250,118 242,150 200,150","#000",.08],["138,150 160,150 154,186 130,182","#000",.14],["262,150 242,150 248,186 270,182","#000",.18],
+["150,176 200,184 250,176 250,192 200,198 150,192","#000",.16],["128,232 168,246 160,270 130,262","#fff",.13],["272,232 232,246 240,270 270,262","#fff",.05],
+["134,272 176,284 164,330 138,318","#000",.24],["266,272 224,284 236,330 262,318","#000",.28],["128,262 170,268 176,284 134,272","#fff",.08],
+["172,300 164,328 176,330 182,306","#000",.13],["228,300 236,328 224,330 218,306","#000",.15],["190,314 210,314 206,330 194,330","#000",.1],
+["132,322 164,330 170,396 150,388","#000",.17],["268,322 236,330 230,396 250,388","#000",.24],["164,330 200,340 200,432 170,396","#fff",.07],["236,330 200,340 200,432 230,396","#000",.12],
+["176,392 224,392 200,432","#fff",.1],["184,376 216,376 224,392 176,392","#000",.1],["180,372 220,372 216,388 184,388","#000",.1],["160,150 200,150 200,176 156,176","#fff",.06],["244,176 200,176 200,150 240,150","#000",.06],["196,184 204,184 206,230 194,230","#fff",.12]];
+$("fx").innerHTML=FX.map(([p,c,o])=>`<polygon points="${p}" fill="${c}" opacity="${o}"/>`).join("");
+const TS=[-1,-.67,-.33,0,.33,.67,1];
+function R(){const s=S,j=cl(s.jaw+spkJ*(1-s.jaw*.6)),bl=Math.max(0,bT>=0?env(bT):0);
+const lx=cl(s.lookX*.8+pX,-1,1),ly=cl(s.lookY*.8+pY,-1,1);
+$("head").setAttribute("transform",`translate(${(s.yaw*9+hy).toFixed(2)},${(s.pitch*7+hb).toFixed(2)}) rotate(${(s.roll*9+hr).toFixed(2)} 200 330)`);
+$("body").setAttribute("transform",`translate(0,${(hb*.4).toFixed(2)})`);
+const F=[[124,158],[154,116],[200,104],[246,116],[276,158],[282,232],[268,322+j*8],[236,396+j*20],[200,432+j*26],[164,396+j*20],[132,322+j*8],[118,232]];
+$("fp").setAttribute("points",P(F));$("fcp").setAttribute("points",P(F));
+["L","R"].forEach(k=>{const e=E[k],cx=e.cx,d=e.d,cy=212,B=Math.max(s["blink"+k],bl),wd=s["eyeWide"+k],sq=s["eyeSquint"+k],bd=s["browDown"+k],bi=s["browInnerUp"+k],bo=s["browOuterUp"+k];
+const op=Math.max(0,(1-B)*(1+wd*.45-sq*.38)),lw=Math.max(0,(1-B)*(1+wd*.3-sq*.75)),sl=1-B,U=[],Lw=[],C=[];
+TS.forEach(t=>{const x=cx+d*t*23,u=(t+1)/2,lo=cy+8*(1-t*t)*lw;let up=cy-13.5*op*(1-t*t)+sl*(bd*9*u+bi*7*(1-u));up=Math.min(up,lo);U.push([x,up]);Lw.push([x,lo]);C.push([x,up-7-5*(1-t*t)*op-bd*2*u])});
+e.w.setAttribute("points",P(U.concat(Lw.slice().reverse())));$("ecp"+k).setAttribute("points",P(U.concat(Lw.slice().reverse())));
+e.up.setAttribute("points",P(U));e.lo.setAttribute("points",P(Lw));e.cr.setAttribute("points",P(C));e.lid.setAttribute("points",P(C.concat(U.slice().reverse())));
+const ix=cx+lx*8.5,iy=cy-ly*5-(1-op)*0;e.ir.setAttribute("cx",ix);e.ir.setAttribute("cy",iy);e.pu.setAttribute("cx",ix);e.pu.setAttribute("cy",iy);
+e.pu.setAttribute("r",4.1+wd*.8-sq*.4);e.hl.setAttribute("x",ix-5);e.hl.setAttribute("y",iy-5.5);
+e.sh.setAttribute("points",P(U.map(p=>[p[0],p[1]]).concat([[U[6][0],U[6][1]-14],[U[0][0],U[0][1]-14]])));
+const lo=bo*13-bd*3,li=bi*15-bd*13+bo*4,top=[],bot=[];
+TS.forEach(t=>{const u=(t+1)/2,x=cx+d*t*30+d*bd*3*u,y=178-(lo*(1-u)+li*u)-8*(1-t*t)*(1-bd*.7+bo*.3),th=4.5+3.5*u;top.push([x,y-th]);bot.push([x,y+th])});
+e.br.setAttribute("points",P(top.concat(bot.reverse())))});
+const up=Math.max((s.browInnerUpL+s.browInnerUpR+s.browOuterUpL+s.browOuterUpR)/4,0),bdm=(s.browDownL+s.browDownR)/2;
+$("fw").setAttribute("opacity",cl(bdm*.8));
+document.querySelectorAll("#fh polyline:not(#fw)").forEach(p=>p.style.opacity=cl(up*1.2));
+const sn=s.sneer,nz=$("nose");nz.setAttribute("transform",`translate(0,${(-sn*3).toFixed(2)})`);
+const mx=200+s.shift*10,y0=352+j*3,hw=32+s.stretch*10-s.pucker*16+(s.smileL+s.smileR)*3,spkP=spkJ*.18,
+co=t=>t<0?(-s.smileL*16+s.frownL*13+s.stretch*3):(-s.smileR*16+s.frownR*13+s.stretch*3),
+gap=j*30+s.pucker*9+spkP*10-s.press*2,uo=2+sn*6+s.pucker*3,Up=[],Lo=[];
+TS.forEach(t=>{const x=mx+t*hw,b=y0+co(t)*Math.pow(Math.abs(t),1.7)+j*8*Math.abs(t),k=1-t*t;Up.push([x,b-k*uo+(s.press*1)]);Lo.push([x,b+k*Math.max(0,gap)+.5])});
+$("mi").setAttribute("points",P(Up.concat(Lo.slice().reverse())));$("mcp").setAttribute("points",P(Up.concat(Lo.slice().reverse())));
+const th=1+s.pucker*.4,ut=Up.map(p=>[p[0],p[1]-(4*(1-((p[0]-mx)/hw)**2)+1.2)*th]),lt=Lo.map(p=>[p[0],p[1]+(5*(1-((p[0]-mx)/hw)**2)+1.2)*th]);
+$("lu").setAttribute("points",P(Up.concat(ut.slice().reverse())));$("ll").setAttribute("points",P(Lo.concat(lt.slice().reverse())));
+$("sm").setAttribute("points",P(Up));$("sm").style.opacity=cl(1-gap/5);
+const yt=Math.min(...Up.map(p=>p[1])),tb=Math.max(...Lo.map(p=>p[1]));
+const tt=$("th");tt.setAttribute("x",mx-hw);tt.setAttribute("width",hw*2);tt.setAttribute("y",yt);tt.setAttribute("height",gap>3?11+sn*8:0);
+const tg=$("tg");tg.setAttribute("cx",mx);tg.setAttribute("cy",tb-3);tg.setAttribute("rx",hw*.5);tg.setAttribute("ry",5+j*9);{const fo=0,fh=fo*(gap>3?8+sn*3+j*5:0),fy=yt-1;[["fgL",-.5],["fgR",.5]].forEach(([i,q])=>{const x=mx+q*hw;$(i).setAttribute("points",P([[x-3.5,fy],[x+3.5,fy],[x,fy+fh]]))})}
+const cl1=Up[0],cr1=Up[6];
+$("nlL").setAttribute("points",P([[172,298],[160,326],[cl1[0]-5,cl1[1]-6]]));$("nlR").setAttribute("points",P([[228,298],[240,326],[cr1[0]+5,cr1[1]-6]]));
+$("nlL").style.opacity=cl(s.smileL*.5+sn*.5);$("nlR").style.opacity=cl(s.smileR*.5+sn*.5);
+$("bhL").setAttribute("opacity",cl(s.blush*.4+s.smileL*.1));$("bhR").setAttribute("opacity",cl(s.blush*.4+s.smileR*.1))}
+const env=t=>{const u=t<.07?t/.07:Math.max(0,1-(t-.07)/.13);return u*u*(3-2*u)};
+let hy=0,hb=0,hr=0,spkJ=0,last=0;
+function tick(ts){requestAnimationFrame(tick);const dt=Math.min(.033,(ts-last)/1000||.016);last=ts;now+=dt;
+if(demo&&now>dNext){dIdx=(dIdx+1)%Object.keys(PRE).length;setPre(Object.keys(PRE)[dIdx],true);dNext=now+2.2}
+CH.forEach(k=>{const kk=/^look/.test(k)?400:/^(roll|yaw|pitch)/.test(k)?90:/^(smile|frown|jaw|pucker|stretch|sneer|shift|press)/.test(k)?180:320,z=/^look|^roll|^yaw|^pitch/.test(k)?1:/^(smile|frown|jaw|pucker|stretch|sneer|shift|press)/.test(k)?.72:.78;
+V[k]+=(kk*(T[k]-S[k])-2*z*Math.sqrt(kk)*V[k])*dt;S[k]+=V[k]*dt});
+const id=$("idle").checked;
+if(bT>=0){bT+=dt;if(bT>.2)bT=-1}
+if(id&&bT<0&&now>bNext){bT=0;bNext=now+2.5+Math.random()*3.5}
+if(id&&now>lNext){lT=Math.random()<.25?[0,0]:[(Math.random()-.5)*.8,(Math.random()-.5)*.5];lNext=now+1.2+Math.random()*2}
+let tg=id?lT:[0,0];if($("cur").checked&&curT)tg=curT;
+pvx+=(300*(tg[0]-pX)-34*pvx)*dt;pvy+=(300*(tg[1]-pY)-34*pvy)*dt;pX+=pvx*dt;pY+=pvy*dt;
+spk+=(($("spk").checked?1:0)-spk)*Math.min(1,dt*8);
+spkJ=spk*cl(.5*(.5+.5*Math.sin(now*11.3))*(.65+.35*Math.sin(now*2.7))+.12*Math.sin(now*17)**2,0,.5);
+hb=id?Math.sin(now*1.3)*1.4:0;hy=id?Math.sin(now*.37)*2.5+spk*Math.sin(now*3.1)*2:0;hr=id?Math.sin(now*.5)*.8+spk*Math.sin(now*2.3)*1.2:0;
+R()}
+
+const ss=window.speechSynthesis;
+function pickVoice(){const v=ss?ss.getVoices():[];return v.find(x=>/en/i.test(x.lang)&&/(male|david|daniel|alex|fred|george|mark|guy|google uk english male)/i.test(x.name))||v.find(x=>/^en/i.test(x.lang))||v[0]}
+function stopTalk(){if(ss)ss.cancel();$("spk").checked=false}
+$("talk").onclick=()=>{if(!ss){$("vmsg").textContent="This browser has no speech support.";return}
+ss.cancel();$("vmsg").textContent="";const u=new SpeechSynthesisUtterance($("say").value||"Engage.");
+const v=pickVoice();if(v)u.voice=v;u.rate=.82;u.pitch=.75;
+u.onstart=()=>{$("spk").checked=true;setPre("determined",true)};
+u.onend=u.onerror=()=>{$("spk").checked=false;setPre("neutral",true)};
+u.onboundary=e=>{if(e.name==="word"){hb+=0}};
+ss.speak(u)};
+$("shh").onclick=()=>{stopTalk();setPre("neutral",true)};
+if(ss)ss.onvoiceschanged=()=>{};
+setPre("neutral",true);requestAnimationFrame(tick);
+</script></body></html>
